@@ -27,9 +27,6 @@ jobs:
         - name: Build token lists
           run: node ./.github/scripts/generate-lists.mjs
 
-        - name: Publish to IPFS
-          run: PERSONAL_ACCESS_TOKEN=${{ secrets.FLEEK_PERSONAL_ACCESS_TOKEN }} PROJECT_ID=${{ secrets.FLEEK_PROJECT_ID }} node ./.github/scripts/push-to-ipfs.mjs
-
         - name: Commit files
           run: |
             git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -55,7 +52,7 @@ jobs:
           if: always()  # Force to always run this step to ensure "include administrators" is always turned back on
           with:
             access_token: ${{ secrets.ACCESS_TOKEN }}
-            owner: smoldapp
+            owner: yearn
             repo: tokenAssets
             branch: ${{ github.event.repository.default_branch }}
             enforce_admins: true
