@@ -1,0 +1,34 @@
+{
+  "functions": {
+    "app/api/token/[chainID]/[tokenAddress]/[filename]/route.ts": {
+      "maxDuration": 10
+    },
+    "app/api/tokens/[chainID]/[tokenAddress]/[filename]/route.ts": {
+      "maxDuration": 10
+    },
+    "app/api/chain/[chainID]/[filename]/route.ts": {
+      "maxDuration": 10
+    },
+    "app/api/chains/[chainID]/[filename]/route.ts": {
+      "maxDuration": 10
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/token/:chainID/:tokenAddress/:filename",
+      "destination": "/api/token/:chainID/:tokenAddress/:filename"
+    },
+    {
+      "source": "/tokens/:chainID/:tokenAddress/:filename",
+      "destination": "/api/tokens/:chainID/:tokenAddress/:filename"
+    },
+    {
+      "source": "/chain/:chainID/:filename",
+      "destination": "/api/chain/:chainID/:filename"
+    },
+    {
+      "source": "/chains/:chainID/:filename",
+      "destination": "/api/chains/:chainID/:filename"
+    }
+  ]
+}
