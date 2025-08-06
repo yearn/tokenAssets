@@ -1,5 +1,15 @@
-// Usage: node scripts/ingestTokens.js <path-to-json>
-// Example: node scripts/ingestTokens.js ./scripts/tokensToInjest.json
+/**
+ * Usage: node scripts/ingestTokens.js <path-to-json>
+ * Example: node scripts/ingestTokens.js ./scripts/tokensToInjest.json
+ * Update the tokensToInjest.json file with the tokens you want to ingest.
+ * Add assets to the folder called token-images-to-ingest.
+ * Each asset should have three files named as follows:
+ * <ASSET_NAME>.svg
+ * <ASSET_NAME>-32.png
+ * <ASSET_NAME>-128.png
+ * where <ASSET_NAME> is the symbol of the token added to the JSON file. There are instructions on how to create these images in the README.
+ * The script will copy and rename these files to the appropriate location in the tokens directory.
+ */
 
 const fs = require('fs');
 const path = require('path');
