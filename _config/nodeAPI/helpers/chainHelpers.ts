@@ -1,7 +1,7 @@
 async function resolveNotFound(request: Request): Promise<Response> {
 	const fallback = new URL(request.url).searchParams.get('fallback');
 	if (fallback === 'true') {
-		const baseURI = 'https://raw.githubusercontent.com/SmolDapp/tokenAssets/main/_config/nodeAPI/public';
+		const baseURI = 'https://raw.githubusercontent.com/yearn/tokenAssets/main/_config/nodeAPI/public';
 		const result = await fetch(`${baseURI}/not-found.png`);
 		return new Response(result.body, {
 			headers: {'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400, must-revalidate'}
@@ -38,7 +38,7 @@ export async function handleChainRequest(request: Request, context: TChainContex
 		return await resolveNotFound(request);
 	}
 
-	const baseURI = 'https://raw.githubusercontent.com/SmolDapp/tokenAssets/main';
+	const baseURI = 'https://raw.githubusercontent.com/yearn/tokenAssets/main';
 	const finalURI = `${baseURI}/chains/${chainIDStr}/${fileName}`;
 	const result = await fetch(finalURI);
 	if (result.ok) {
