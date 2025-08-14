@@ -1,9 +1,0 @@
-[
-    {
-        "chainId" : 1,
-        "symbol": "mETH",
-        "address": "0xd5F7838F5C461fefF7FE49ea5ebaF7728bB0ADfa",
-        "assetFolder": "./token-images-to-ingest"
-    }
-
-]
