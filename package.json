@@ -13,7 +13,8 @@
 		"format": "prettier --write . --verbose",
 		"prettier-format": "prettier --config .prettierrc \"./**/**/*.{js,mjs,ts,tsx,scss,md}\" --write",
 		"format:check": "prettier --check .",
-		"generate:yearn": "ts-node scripts/generateYearnTokenList.ts"
+		"generate:yearn": "ts-node scripts/generateYearnTokenList.ts",
+		"ingest": "ts-node scripts/ingestTokens.ts"
 	},
 	"devDependencies": {
 		"next": "^14.0.2",
