@@ -1,6 +1,6 @@
 # Upload → Ingestion → PR Feature Plan
 
-This document outlines a minimal, efficient implementation to add a small web UI that lets users upload token/chain images, validates them, places them in the correct repo paths using the existing scripts, and opens a pull request with the changes. It mirrors the GitHub OAuth + PR creation flow described in `docs/github-auth-pr-flow.md` and adapts it to a Vite + TypeScript + TanStack frontend, while reusing our existing Next.js API under `_config/nodeAPI` for server functionality.
+This document outlines a minimal, efficient implementation to add a small web UI that lets users upload token/chain images, validates them, places them in the correct repo paths using the existing scripts, and opens a pull request with the changes. It mirrors the GitHub OAuth + PR creation flow described in `docs/github-auth-pr-flow.md` and adapts it to a Vite + TypeScript + TanStack frontend, paired with a small standalone Node server for API endpoints (leaving `_config/nodeAPI` untouched).
 
 ## Goals
 
@@ -19,7 +19,7 @@ This document outlines a minimal, efficient implementation to add a small web UI
   - Addresses lowercase for EVM; case-sensitive for Solana (`1151111081099710`).
 - Reuse `scripts/ingestTokens.js` and `scripts/token-images-to-ingest/` for ingestion.
 - Frontend is a Vite + TypeScript + TanStack app (generated like `../app-generator/create-app.js`), living under `app/`.
-- Server endpoints remain Next.js API routes under `_config/nodeAPI` to keep using the existing dev/hosting surface.
+- Server endpoints live in a standalone Node server (Express) under `app/image-tools/server` so `_config/nodeAPI` remains a standalone, unchanged piece of the repo.
 - Use environment variables for credentials; do not commit secrets.
 
 ## Architecture Overview
@@ -36,10 +36,10 @@ This document outlines a minimal, efficient implementation to add a small web UI
 - Auth flow (mirroring reference):
 
   - Client (Vite app): generate `auth_challenge` (state), redirect to `https://github.com/login/oauth/authorize?client_id=<VITE_GITHUB_CLIENT_ID>&state=<state>&scope=public_repo`.
-  - Server (Next.js API): `GET /api/auth/github/callback` exchanges `code` for a token and redirects to the Vite app at `/auth/github/success?token=...&state=...` (e.g., `http://localhost:5173/auth/github/success?...`).
+  - Server (standalone Node server): `GET /api/auth/github/callback` exchanges `code` for a token and redirects to the Vite app at `/auth/github/success?token=...&state=...` (e.g., `http://localhost:5173/auth/github/success?...`).
   - Client: success route verifies `state`, stores `github_token` in `sessionStorage`, returns to `/upload`.
 
-- API route (Next.js):
+- API route (Node server):
 
   - Receives `multipart/form-data` with fields + files, and either `Authorization: Bearer <github_token>` or `token` in the form body.
   - Writes files to `scripts/token-images-to-ingest/<slug>/`.
@@ -62,24 +62,22 @@ This document outlines a minimal, efficient implementation to add a small web UI
 
 ## Files To Add
 
-- Vite app (frontend) under `app/upload-ingestion/`:
-  - `app/upload-ingestion/index.html`.
-  - `app/upload-ingestion/vite.config.ts`.
-  - `app/upload-ingestion/tsconfig.json`.
-  - `app/upload-ingestion/src/main.tsx`.
-  - `app/upload-ingestion/src/router.tsx` (TanStack Router config).
-  - `app/upload-ingestion/src/routes/upload.tsx` (upload form + drag‑and‑drop UI with signed‑in gating).
-  - `app/upload-ingestion/src/routes/auth/github-success.tsx` (stores token then routes back to `/upload`).
-  - `app/upload-ingestion/src/components/GithubSignIn.tsx` (OAuth trigger + signed‑in state).
-  - `app/upload-ingestion/src/lib/api.ts` (API base URL, fetch helpers; TanStack Query clients).
-  - `app/upload-ingestion/src/lib/githubAuth.ts` (client helper to build OAuth URL with `VITE_GITHUB_CLIENT_ID`).
+- Vite app (frontend) under `app/image-tools/`:
+  - `app/image-tools/index.html`.
+  - `app/image-tools/vite.config.ts`.
+  - `app/image-tools/tsconfig.json`.
+  - `app/image-tools/src/main.tsx`.
+  - `app/image-tools/src/router.tsx` (TanStack Router config).
+  - `app/image-tools/src/routes/upload.tsx` (upload form + drag‑and‑drop UI with signed‑in gating).
+  - `app/image-tools/src/routes/auth/github-success.tsx` (stores token then routes back to `/upload`).
+  - `app/image-tools/src/components/GithubSignIn.tsx` (OAuth trigger + signed‑in state).
+  - `app/image-tools/src/lib/api.ts` (API base URL, fetch helpers; TanStack Query clients).
+  - `app/image-tools/src/lib/githubAuth.ts` (client helper to build OAuth URL with `VITE_GITHUB_CLIENT_ID`).
 
-- Next.js API (server) under `_config/nodeAPI`:
-  - `_config/nodeAPI/app/api/upload/route.ts` (POST handler for uploads → ingestion → PR; accepts user token).
-  - `_config/nodeAPI/app/api/auth/github/callback/route.ts` (OAuth callback → token exchange → redirect to Vite app).
-  - `_config/nodeAPI/helpers/uploadValidation.ts` (image validation: dimensions, extensions, sizes, safe names).
-  - `_config/nodeAPI/helpers/git.ts` (GitHub REST helpers: default branch, refs, blobs, trees, commits, PRs).
-  - (Optional) `scripts/ingestChains.js` to mirror token ingestion for chain logos, or inline in the API route.
+- Standalone API server under `app/image-tools/server/`:
+  - `app/image-tools/server/index.ts` (Express app; serves `/api/auth/github/callback` and `/api/upload`).
+  - `app/image-tools/server/github.ts` (helpers for GitHub OAuth + PR creation).
+  - `app/image-tools/server/ingest.ts` (helpers to validate files, write staging, and copy/rename to `tokens/` or `chains/`).
 
 ## Data Flow
 
@@ -145,8 +143,11 @@ This document outlines a minimal, efficient implementation to add a small web UI
 
 - Required env vars (align with reference naming where applicable):
   - `VITE_GITHUB_CLIENT_ID`: GitHub OAuth App Client ID for the Vite client (exposed to client; Vite requires the `VITE_` prefix).
-  - `GITHUB_CLIENT_SECRET`: GitHub OAuth App Client Secret (server‑side only; used by Next.js API callback).
-  - `API_BASE_URL`: Base URL of the Next.js API (e.g., `http://localhost:3000`).
+  - `VITE_API_BASE_URL`: Base URL of the Next.js API for the Vite client (e.g., `http://localhost:3000`).
+  - `GITHUB_CLIENT_ID`: GitHub OAuth App Client ID (server‑side).
+  - `GITHUB_CLIENT_SECRET`: GitHub OAuth App Client Secret (server‑side only; used by the Node server callback).
+  - `VITE_API_BASE_URL`: Base URL of the standalone API for the Vite client (e.g., `http://localhost:5174`).
+  - `API_BASE_URL`: Base URL of the standalone API (server uses its own port; e.g., `http://localhost:5174`).
   - `APP_BASE_URL`: Base URL of the Vite app (e.g., `http://localhost:5173`) used by the callback redirect.
   - `REPO_OWNER`: e.g., `yearn`.
   - `REPO_NAME`: `tokenAssets`.
@@ -162,11 +163,11 @@ This document outlines a minimal, efficient implementation to add a small web UI
 ## Validation & Testing
 
 - Local dev:
-  - Start API (Next.js): `yarn --cwd _config/nodeAPI dev` (serves OAuth callback and upload API).
-  - Start frontend (Vite): `yarn --cwd app/upload-ingestion dev` (serves the UI on port 5173 by default).
+  - Start API server (Node): `yarn --cwd app/image-tools dev:server` (serves OAuth callback and upload API on port 5174 by default).
+  - Start frontend (Vite): `yarn --cwd app/image-tools dev` (serves the UI on port 5173 by default).
   - Open `http://localhost:5173/upload` and submit a sample.
   - Verify asset endpoint URLs locally: `/api/token/<chainId>/<address>/logo-32.png`.
-  - Run `yarn format:check` and `yarn --cwd _config/nodeAPI lint`.
+  - Run `yarn format:check` to ensure repo formatting.
 - Manual checks:
   - Confirm both PNG sizes exist and load; ensure filenames are correct.
   - Inspect created branch/PR; confirm only expected paths are changed.
@@ -202,9 +203,9 @@ This document outlines a minimal, efficient implementation to add a small web UI
 
 ## Rollout Plan
 
-1. Scaffold Vite + TS + TanStack app under `app/upload-ingestion` (per `../app-generator/create-app.js` conventions).
-2. Implement GitHub OAuth callback in Next.js API (`/api/auth/github/callback`) and success route in the Vite app; add sign‑in button.
-3. Implement `/upload` route in the Vite app and `/api/upload` in Next.js API using the user token and GitHub Git Data API for PRs.
+1. Scaffold Vite + TS + TanStack app under `app/image-tools` (per `../app-generator/create-app.js` conventions).
+2. Implement GitHub OAuth callback in the standalone server (`/api/auth/github/callback`) and success route in the Vite app; add sign‑in button.
+3. Implement `/upload` route in the Vite app and `/api/upload` in the standalone server using the user token and GitHub Git Data API for PRs.
 4. Add chain ingestion (inline or separate script) to support `chains/<chainId>/`.
 5. Add guards (rate limiting, size caps) and dimension validation.
 6. Smoke test locally; share sample PRs.
