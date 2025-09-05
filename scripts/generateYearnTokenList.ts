@@ -129,7 +129,8 @@ function uniqueTokens(tokens: ITokenListToken[]): ITokenListToken[] {
 function assetLogoURI(chainIDStr: string, lowerAddr: string): string | undefined {
 	const assetPath = path.join(__dirname, '..', 'tokens', chainIDStr, lowerAddr, 'logo-128.png');
 	if (fs.existsSync(assetPath)) {
-		return `https://raw.githubusercontent.com/yearn/tokenAssets/main/tokens/${chainIDStr}/${lowerAddr}/logo-128.png`;
+		// return `https://raw.githubusercontent.com/yearn/tokenAssets/main/tokens/${chainIDStr}/${lowerAddr}/logo-128.png`;
+		return `https://cdn.jsdelivr.net/gh/yearn/tokenassets@main/tokens/${chainIDStr}/${lowerAddr}/logo-32.png`;
 	}
 	return undefined;
 }
