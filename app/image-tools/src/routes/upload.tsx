@@ -1,9 +1,9 @@
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {Fragment, useEffect, useMemo, useState} from 'react';
 import {createRoute} from '@tanstack/react-router';
 import {rootRoute} from '../router';
 import {GithubSignIn} from '../components/GithubSignIn';
 import {API_BASE_URL} from '../lib/api';
-import {Switch} from '@headlessui/react';
+import {Dialog, Switch, Transition} from '@headlessui/react';
 import {SegmentedToggle} from '../components/SegmentedToggle';
 
 type TokenItem = {
@@ -26,6 +26,12 @@ export const UploadComponent: React.FC = () => {
 	const [tokenItems, setTokenItems] = useState<TokenItem[]>([
 		{chainId: '', address: '', genPng: true, files: {}, preview: {}}
 	]);
+
+	// PR review modal state
+	const [reviewOpen, setReviewOpen] = useState(false);
+	const [prTitle, setPrTitle] = useState('');
+	const [prBody, setPrBody] = useState('');
+	const [submitting, setSubmitting] = useState(false);
 
 	const canSubmit = useMemo(() => {
 		if (mode === 'chain') {
@@ -149,9 +155,38 @@ export const UploadComponent: React.FC = () => {
 		mode
 	]);
 
-	const onSubmit = async (e: React.FormEvent) => {
-		e.preventDefault();
-		if (!token) return alert('Sign in with GitHub first.');
+
+	function buildDefaultPrMetadata() {
+		if (mode === 'token') {
+			const addressesForBody = tokenItems
+				.map(i => (i.address?.toLowerCase?.() as string) || '')
+				.filter(Boolean);
+			const chainsForBody = tokenItems.map(i => i.chainId || chainId || '').map(String);
+			const uniqueChains = Array.from(new Set(chainsForBody.filter(Boolean)));
+			const title = `feat: add token assets (${addressesForBody.length})`;
+			const sampleUrls = addressesForBody
+				.slice(0, 3)
+				.flatMap((addr, i) => [
+					`/api/token/${chainsForBody[i]}/${addr}/logo-32.png`,
+					`/api/token/${chainsForBody[i]}/${addr}/logo-128.png`
+				]);
+			const body = [
+				`Chains: ${uniqueChains.join(', ')}`,
+				`Addresses: ${addressesForBody.join(', ')}`,
+				'',
+				'Sample URLs:',
+				...sampleUrls.map(u => `- ${u}`)
+			].join('\n');
+			return {title, body};
+		} else {
+			const title = `feat: add chain assets on ${chainId}`;
+			const sampleUrls = [`/api/chain/${chainId}/logo-32.png`, `/api/chain/${chainId}/logo-128.png`];
+			const body = [`Chain: ${chainId}`, '', 'Sample URLs:', ...sampleUrls.map(u => `- ${u}`)].join('\n');
+			return {title, body};
+		}
+	}
+
+	function buildFormData(withPrMeta?: {title: string; body: string}) {
 		const body = new FormData();
 		body.append('target', mode);
 		body.append('chainId', chainId);
@@ -174,33 +209,54 @@ export const UploadComponent: React.FC = () => {
 				if (chainFiles.png128) body.append('png128', chainFiles.png128);
 			}
 		}
+		if (withPrMeta) {
+			body.append('prTitle', withPrMeta.title);
+			body.append('prBody', withPrMeta.body);
+		}
+		return body;
+	}
 
-		const reqUrl = new URL('/api/upload', API_BASE_URL).toString();
-		const res = await fetch(reqUrl, {
-			method: 'POST',
-			headers: {Authorization: `Bearer ${token}`},
-			body
-		});
-		if (!res.ok) {
-			const ct = res.headers.get('content-type') || '';
-			let msg = '';
-			try {
-				if (ct.includes('application/json')) {
-					const j = await res.json();
-					msg = j?.error || JSON.stringify(j);
-				} else {
-					msg = await res.text();
-				}
-			} catch {}
-			return alert(`Upload failed: ${msg || res.status}`);
-		}
-		const json = await res.json();
-		if (json?.prUrl) {
-			window.open(json.prUrl, '_blank');
-		} else {
-			alert('Upload complete, PR created.');
-		}
+	const onSubmit = async (e: React.FormEvent) => {
+		e.preventDefault();
+		if (!token) return alert('Sign in with GitHub first.');
+		const {title, body} = buildDefaultPrMetadata();
+		setPrTitle(title);
+		setPrBody(body);
+		setReviewOpen(true);
 	};
+
+	async function confirmAndSubmit() {
+		if (!token) return alert('Sign in with GitHub first.');
+		setSubmitting(true);
+		try {
+			const reqUrl = new URL('/api/upload', API_BASE_URL).toString();
+			const form = buildFormData({title: prTitle, body: prBody});
+			const res = await fetch(reqUrl, {method: 'POST', headers: {Authorization: `Bearer ${token}`}, body: form});
+			if (!res.ok) {
+				const ct = res.headers.get('content-type') || '';
+				let msg = '';
+				try {
+					if (ct.includes('application/json')) {
+						const j = await res.json();
+						msg = j?.error || JSON.stringify(j);
+					} else {
+						msg = await res.text();
+					}
+				} catch {}
+				alert(`Upload failed: ${msg || res.status}`);
+				return;
+			}
+			const json = await res.json();
+			if (json?.prUrl) {
+				window.open(json.prUrl, '_blank');
+			} else {
+				alert('Upload complete, PR created.');
+			}
+			setReviewOpen(false);
+		} finally {
+			setSubmitting(false);
+		}
+	}
 
 	return (
 		<div className="mx-auto max-w-3xl">
@@ -652,6 +708,54 @@ export const UploadComponent: React.FC = () => {
 					</button>
 				</div>
 			</form>
+
+			{/* PR Review Modal */}
+			<Transition show={reviewOpen} as={Fragment}>
+				<Dialog as="div" className="relative z-50" onClose={() => (submitting ? null : setReviewOpen(false))}>
+					<div className="fixed inset-0 bg-black/30" aria-hidden="true" />
+					<div className="fixed inset-0 flex items-center justify-center p-4">
+						<Dialog.Panel className="w-full max-w-2xl rounded-lg bg-white p-6 shadow-xl">
+							<Dialog.Title className="text-lg font-semibold text-gray-900">Review PR Details</Dialog.Title>
+							<p className="mt-1 text-sm text-gray-600">Edit the title and description before creating the PR.</p>
+							<div className="mt-4 space-y-4">
+								<div>
+									<label className="mb-1 block text-sm font-medium text-gray-700">Title</label>
+									<input
+										className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+										value={prTitle}
+										onChange={e => setPrTitle(e.target.value)}
+									/>
+								</div>
+								<div>
+									<label className="mb-1 block text-sm font-medium text-gray-700">Description</label>
+									<textarea
+										rows={10}
+										className="block w-full rounded-md border-gray-300 font-mono text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500"
+										value={prBody}
+										onChange={e => setPrBody(e.target.value)}
+									/>
+								</div>
+							</div>
+							<div className="mt-6 flex items-center justify-end gap-3">
+								<button
+									type="button"
+									className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:opacity-50"
+									onClick={() => setReviewOpen(false)}
+									disabled={submitting}>
+									Cancel
+								</button>
+								<button
+									type="button"
+									className="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+									onClick={confirmAndSubmit}
+									disabled={submitting}>
+									{submitting ? 'Submitting…' : 'Create PR'}
+								</button>
+							</div>
+						</Dialog.Panel>
+					</div>
+				</Dialog>
+			</Transition>
 		</div>
 	);
 };

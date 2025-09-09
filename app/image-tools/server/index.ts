@@ -85,6 +85,9 @@ app.post('/api/upload', upload.any(), async (req, res) => {
 		const target = String(req.body.target || 'token');
 		const chainId = String(req.body.chainId || '').trim();
 		const genPngGlobal = ['1', 'true', 'on', 'yes'].includes(String(req.body.genPng || '').toLowerCase());
+		// Optional overrides for PR metadata from client
+		const prTitleOverride = String(req.body.prTitle || '').trim();
+		const prBodyOverride = String(req.body.prBody || '').trim();
 
 		log('Incoming upload', {
 			target,
@@ -253,9 +256,10 @@ app.post('/api/upload', upload.any(), async (req, res) => {
 		);
 		const uniqueChains = Array.from(new Set(chainsForBody.filter(Boolean)));
 		const title =
-			target === 'token'
+			prTitleOverride ||
+			(target === 'token'
 				? `feat: add token assets (${addressesForBody.length})`
-				: `feat: add chain assets on ${chainId}`;
+				: `feat: add chain assets on ${chainId}`);
 		const baseUrl = process.env.API_BASE_URL || 'http://localhost:5174';
 		const sampleUrls =
 			target === 'token'
@@ -266,14 +270,16 @@ app.post('/api/upload', upload.any(), async (req, res) => {
 							`/api/token/${chainsForBody[i]}/${addr}/logo-128.png`
 						])
 				: [`/api/chain/${chainId}/logo-32.png`, `/api/chain/${chainId}/logo-128.png`];
-		const prBody = [
-			target === 'token'
-				? `Chains: ${uniqueChains.join(', ')}\nAddresses: ${addressesForBody.join(', ')}`
-				: `Chain: ${chainId}`,
-			'',
-			'Sample URLs:',
-			...sampleUrls.map(u => `- ${u}`)
-		].join('\n');
+		const prBody =
+			prBodyOverride ||
+			[
+				target === 'token'
+					? `Chains: ${uniqueChains.join(', ')}\nAddresses: ${addressesForBody.join(', ')}`
+					: `Chain: ${chainId}`,
+				'',
+				'Sample URLs:',
+				...sampleUrls.map(u => `- ${u}`)
+			].join('\n');
 
 		log('Opening PR', {owner, repo, target, filesCount: prFiles.length});
 		const prUrl = await openPrWithFilesForkAware({
