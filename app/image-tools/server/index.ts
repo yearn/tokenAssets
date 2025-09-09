@@ -43,6 +43,96 @@ function ensureDir(dir: string) {
 	if (!fs.existsSync(dir)) fs.mkdirSync(dir, {recursive: true});
 }
 
+// ---- Minimal chain RPC helpers for ERC-20 name lookup ----
+const DEFAULT_RPCS: Partial<Record<number, string>> = {
+	1: 'https://cloudflare-eth.com',
+	10: 'https://mainnet.optimism.io',
+	100: 'https://rpc.gnosischain.com',
+	137: 'https://polygon-rpc.com',
+	250: 'https://rpc.ankr.com/fantom',
+	42161: 'https://arb1.arbitrum.io/rpc',
+	8453: 'https://mainnet.base.org'
+	// others can be provided via env
+};
+
+function getRpcUrlFromEnv(chainId: number): string | undefined {
+	const k1 = `VITE_RPC_URI_FOR_${chainId}`;
+	const k2 = `VITE_RPC_${chainId}`;
+	const val = process.env[k1] || process.env[k2];
+	return val || DEFAULT_RPCS[chainId];
+}
+
+function isEvmAddress(addr: string): boolean {
+	return /^0x[a-fA-F0-9]{40}$/.test(String(addr || '').trim());
+}
+
+function decodeAbiString(resultHex: string): string {
+	const hex = resultHex.startsWith('0x') ? resultHex.slice(2) : resultHex;
+	if (hex.length >= 192) {
+		const lenHex = hex.slice(64, 128);
+		const len = parseInt(lenHex || '0', 16);
+		const dataHex = hex.slice(128, 128 + len * 2);
+		return Buffer.from(dataHex, 'hex')
+			.toString('utf8')
+			.replace(/\u0000+$/, '');
+	}
+	if (hex.length === 64) {
+		const trimmed = hex.replace(/00+$/, '');
+		return Buffer.from(trimmed, 'hex')
+			.toString('utf8')
+			.replace(/\u0000+$/, '');
+	}
+	return Buffer.from(hex, 'hex')
+		.toString('utf8')
+		.replace(/\u0000+$/, '');
+}
+
+app.post('/api/erc20-name', async (req, res) => {
+	try {
+		const chainIdStr = String(req.body.chainId || '').trim();
+		const address = String(req.body.address || '').trim();
+		const chainId = Number(chainIdStr);
+		if (!chainId || Number.isNaN(chainId)) return res.status(400).json({error: 'Invalid chainId'});
+		if (!isEvmAddress(address)) return res.status(400).json({error: 'Invalid address'});
+		const rpc = getRpcUrlFromEnv(chainId);
+		if (!rpc) return res.status(400).json({error: 'No RPC configured for chain'});
+		const payload = {
+			jsonrpc: '2.0',
+			id: Math.floor(Math.random() * 1e9),
+			method: 'eth_call',
+			params: [{to: address, data: '0x06fdde03'}, 'latest']
+		};
+		const r = await fetch(rpc, {
+			method: 'POST',
+			headers: {'Content-Type': 'application/json', Accept: 'application/json'},
+			body: JSON.stringify(payload)
+		});
+		if (!r.ok) {
+			let bodyText = '';
+			try {
+				bodyText = await r.text();
+			} catch {}
+			if (DEBUG)
+				log('erc20-name RPC non-OK', {
+					chainId,
+					address,
+					rpc,
+					status: r.status,
+					bodyText: bodyText?.slice?.(0, 300)
+				});
+			return res.status(502).json({error: `RPC HTTP ${r.status}`, details: bodyText?.slice?.(0, 300)});
+		}
+		const j = await r.json().catch(async () => ({raw: await r.text()}));
+		if (j?.error) return res.status(502).json({error: j.error?.message || 'RPC error'});
+		const result: string | undefined = j?.result;
+		if (!result || result === '0x') return res.status(404).json({error: 'Empty result'});
+		const name = decodeAbiString(result);
+		return res.json({name});
+	} catch (e: any) {
+		res.status(500).json({error: e?.message || 'Lookup failed'});
+	}
+});
+
 app.get('/api/health', (_req, res) => {
 	res.json({ok: true, service: 'image-tools-api'});
 });
@@ -261,15 +351,14 @@ app.post('/api/upload', upload.any(), async (req, res) => {
 				? `feat: add token assets (${addressesForBody.length})`
 				: `feat: add chain assets on ${chainId}`);
 		const baseUrl = process.env.API_BASE_URL || 'http://localhost:5174';
-		const sampleUrls =
+		const directoryLocations =
 			target === 'token'
-				? addressesForBody
-						.slice(0, 3)
-						.flatMap((addr: string, i: number) => [
-							`/api/token/${chainsForBody[i]}/${addr}/logo-32.png`,
-							`/api/token/${chainsForBody[i]}/${addr}/logo-128.png`
-						])
-				: [`/api/chain/${chainId}/logo-32.png`, `/api/chain/${chainId}/logo-128.png`];
+				? addressesForBody.flatMap((addr: string, i: number) => [
+						`/token/${chainsForBody[i]}/${addr}/logo.svg`,
+						`/token/${chainsForBody[i]}/${addr}/logo-32.png`,
+						`/token/${chainsForBody[i]}/${addr}/logo-128.png`
+				  ])
+				: [`/chain/${chainId}/logo.svg`, `/chain/${chainId}/logo-32.png`, `/chain/${chainId}/logo-128.png`];
 		const prBody =
 			prBodyOverride ||
 			[
@@ -277,8 +366,8 @@ app.post('/api/upload', upload.any(), async (req, res) => {
 					? `Chains: ${uniqueChains.join(', ')}\nAddresses: ${addressesForBody.join(', ')}`
 					: `Chain: ${chainId}`,
 				'',
-				'Sample URLs:',
-				...sampleUrls.map(u => `- ${u}`)
+				'Uploaded locations:',
+				...directoryLocations.map(u => `- ${u}`)
 			].join('\n');
 
 		log('Opening PR', {owner, repo, target, filesCount: prFiles.length});

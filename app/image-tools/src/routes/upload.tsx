@@ -4,14 +4,19 @@ import {rootRoute} from '../router';
 import {GithubSignIn} from '../components/GithubSignIn';
 import {API_BASE_URL} from '../lib/api';
 import {Dialog, Switch, Transition} from '@headlessui/react';
+import {getRpcUrl, isEvmAddress, listKnownChains} from '../lib/chains';
 import {SegmentedToggle} from '../components/SegmentedToggle';
 
 type TokenItem = {
 	chainId: string;
 	address: string;
+	name?: string;
 	genPng: boolean;
 	files: {svg?: File; png32?: File; png128?: File};
 	preview: {svg?: string; png32?: string; png128?: string};
+	resolvingName?: boolean;
+	resolveError?: string;
+	addressValid?: boolean;
 };
 
 export const UploadComponent: React.FC = () => {
@@ -24,7 +29,7 @@ export const UploadComponent: React.FC = () => {
 	const [chainPreview, setChainPreview] = useState<{svg?: string; png32?: string; png128?: string}>({});
 	// Token items
 	const [tokenItems, setTokenItems] = useState<TokenItem[]>([
-		{chainId: '', address: '', genPng: true, files: {}, preview: {}}
+		{chainId: '', address: '', name: '', genPng: true, files: {}, preview: {}}
 	]);
 
 	// PR review modal state
@@ -53,6 +58,68 @@ export const UploadComponent: React.FC = () => {
 		window.addEventListener('storage', handler);
 		return () => window.removeEventListener('storage', handler);
 	}, []);
+
+	// ---- Helpers: Token name lookup via JSON-RPC ----
+	async function fetchErc20Name(chainIdStr: string, address: string): Promise<string> {
+		const cid = Number(chainIdStr);
+		if (!cid || Number.isNaN(cid)) throw new Error('Invalid chain');
+		// Prefer server endpoint to avoid CORS and centralize env
+		try {
+			const url = new URL('/api/erc20-name', API_BASE_URL).toString();
+			const res = await fetch(url, {
+				method: 'POST',
+				headers: {'Content-Type': 'application/json'},
+				body: JSON.stringify({chainId: cid, address})
+			});
+			if (!res.ok) throw new Error(await res.text());
+			const j = await res.json();
+			if (j?.name) return j.name as string;
+		} catch (e) {
+			// fall through to direct RPC attempt
+		}
+		const rpc = getRpcUrl(cid);
+		if (!rpc) throw new Error('No RPC configured for this chain');
+		const data = '0x06fdde03';
+		const payload = {
+			jsonrpc: '2.0',
+			id: Math.floor(Math.random() * 1e9),
+			method: 'eth_call',
+			params: [{to: address, data}, 'latest']
+		};
+		const res = await fetch(rpc, {
+			method: 'POST',
+			headers: {'Content-Type': 'application/json'},
+			body: JSON.stringify(payload)
+		});
+		if (!res.ok) throw new Error(`RPC ${res.status}`);
+		const json = await res.json();
+		if (json?.error) throw new Error(json.error?.message || 'RPC error');
+		const result: string | undefined = json?.result;
+		if (!result || result === '0x') throw new Error('Empty result');
+		return decodeAbiString(result);
+	}
+
+	function decodeAbiString(resultHex: string): string {
+		const hex = resultHex.startsWith('0x') ? resultHex.slice(2) : resultHex;
+		// Dynamic string encoding: offset (32 bytes), length (32 bytes), data
+		if (hex.length >= 192) {
+			const lenHex = hex.slice(64, 128);
+			const len = parseInt(lenHex || '0', 16);
+			const dataHex = hex.slice(128, 128 + len * 2);
+			return hexToUtf8(dataHex);
+		}
+		// Fallback: bytes32-like (padded)
+		if (hex.length === 64) {
+			return hexToUtf8(hex.replace(/00+$/, ''));
+		}
+		// Last resort: try to interpret whatever is there
+		return hexToUtf8(hex);
+	}
+
+	function hexToUtf8(hex: string): string {
+		const bytes = hex.match(/.{1,2}/g)?.map(b => parseInt(b, 16)) || [];
+		return new TextDecoder().decode(new Uint8Array(bytes)).replace(/\u0000+$/, '');
+	}
 
 	const onChainFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const f = e.target.files?.[0];
@@ -155,33 +222,38 @@ export const UploadComponent: React.FC = () => {
 		mode
 	]);
 
-
 	function buildDefaultPrMetadata() {
 		if (mode === 'token') {
-			const addressesForBody = tokenItems
-				.map(i => (i.address?.toLowerCase?.() as string) || '')
-				.filter(Boolean);
+			const addressesForBody = tokenItems.map(i => (i.address?.toLowerCase?.() as string) || '').filter(Boolean);
 			const chainsForBody = tokenItems.map(i => i.chainId || chainId || '').map(String);
 			const uniqueChains = Array.from(new Set(chainsForBody.filter(Boolean)));
 			const title = `feat: add token assets (${addressesForBody.length})`;
-			const sampleUrls = addressesForBody
-				.slice(0, 3)
-				.flatMap((addr, i) => [
-					`/api/token/${chainsForBody[i]}/${addr}/logo-32.png`,
-					`/api/token/${chainsForBody[i]}/${addr}/logo-128.png`
-				]);
+			const directoryLocations = addressesForBody.flatMap((addr, i) => [
+				`/token/${chainsForBody[i]}/${addr}/logo.svg`,
+				`/atoken/${chainsForBody[i]}/${addr}/logo-32.png`,
+				`/token/${chainsForBody[i]}/${addr}/logo-128.png`
+			]);
 			const body = [
 				`Chains: ${uniqueChains.join(', ')}`,
 				`Addresses: ${addressesForBody.join(', ')}`,
 				'',
-				'Sample URLs:',
-				...sampleUrls.map(u => `- ${u}`)
+				'Directory Location of uploaded logos:',
+				...directoryLocations.map(u => `- ${u}`)
 			].join('\n');
 			return {title, body};
 		} else {
 			const title = `feat: add chain assets on ${chainId}`;
-			const sampleUrls = [`/api/chain/${chainId}/logo-32.png`, `/api/chain/${chainId}/logo-128.png`];
-			const body = [`Chain: ${chainId}`, '', 'Sample URLs:', ...sampleUrls.map(u => `- ${u}`)].join('\n');
+			const sampleUrls = [
+				`/chain/${chainId}/logo.svg`,
+				`/chain/${chainId}/logo-32.png`,
+				`/chain/${chainId}/logo-128.png`
+			];
+			const body = [
+				`Chain: ${chainId}`,
+				'',
+				'Directory Location of uploaded logos:',
+				...sampleUrls.map(u => `- ${u}`)
+			].join('\n');
 			return {title, body};
 		}
 	}
@@ -252,7 +324,13 @@ export const UploadComponent: React.FC = () => {
 			} else {
 				alert('Upload complete, PR created.');
 			}
+			// Reset form state after successful PR creation
 			setReviewOpen(false);
+			setTokenItems([{chainId: '', address: '', name: '', genPng: true, files: {}, preview: {}}]);
+			setChainId('');
+			setChainGenPng(true);
+			setChainFiles({});
+			setChainPreview({});
 		} finally {
 			setSubmitting(false);
 		}
@@ -267,49 +345,177 @@ export const UploadComponent: React.FC = () => {
 				<div className="rounded-md border p-4">
 					<div className="mb-4 flex items-center justify-between">
 						<h3 className="text-base font-medium text-gray-900">First asset to add</h3>
-						<SegmentedToggle
-							className="max-w-xs"
-							options={[
-								{value: 'token', label: 'Token Asset'},
-								{value: 'chain', label: 'Chain Asset'}
-							]}
-							value={mode}
-							onChange={v => setMode(v as 'token' | 'chain')}
-						/>
+						<div className="flex items-center gap-2">
+							<button
+								type="button"
+								className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+								onClick={() => {
+									if (mode === 'token') {
+										setTokenItems([
+											{chainId: '', address: '', name: '', genPng: true, files: {}, preview: {}}
+										]);
+									} else {
+										setChainId('');
+										setChainGenPng(true);
+										setChainFiles({});
+										setChainPreview({});
+									}
+								}}>
+								Clear
+							</button>
+							<SegmentedToggle
+								className="max-w-xs"
+								options={[
+									{value: 'token', label: 'Token Asset'},
+									{value: 'chain', label: 'Chain Asset'}
+								]}
+								value={mode}
+								onChange={v => setMode(v as 'token' | 'chain')}
+							/>
+						</div>
 					</div>
 					<div className="space-y-4">
 						<label className="block">
-							<span className="mb-1 block text-sm font-medium text-gray-700">Chain ID</span>
+							<span className="mb-1 block text-sm font-medium text-gray-700">Chain</span>
 							{mode === 'token' ? (
 								<input
 									className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+									list="chains-list"
 									value={tokenItems[0]?.chainId || ''}
-									onChange={e =>
-										setTokenItems(prev => [{...prev[0], chainId: e.target.value}, ...prev.slice(1)])
-									}
-									placeholder="eg. 1"
+									onChange={e => {
+										const v = e.target.value;
+										setTokenItems(prev => [{...prev[0], chainId: v}, ...prev.slice(1)]);
+									}}
+									onBlur={async () => {
+										const it = tokenItems[0];
+										if (!it || !isEvmAddress(it.address) || it.name) return;
+										const cid = Number(it.chainId || chainId);
+										if (!cid || Number.isNaN(cid)) return;
+										try {
+											setTokenItems(prev => [
+												{...prev[0], resolvingName: true, resolveError: ''},
+												...prev.slice(1)
+											]);
+											const name = await fetchErc20Name(String(cid), it.address);
+											setTokenItems(prev => [
+												{
+													...prev[0],
+													resolvingName: false,
+													name: prev[0].name || name,
+													resolveError: ''
+												},
+												...prev.slice(1)
+											]);
+										} catch (err: any) {
+											setTokenItems(prev => [
+												{
+													...prev[0],
+													resolvingName: false,
+													resolveError: 'Could not fetch token name. Please verify address.'
+												},
+												...prev.slice(1)
+											]);
+										}
+									}}
+									placeholder="enter/select chain"
 								/>
 							) : (
 								<input
 									className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+									list="chains-list"
 									value={chainId}
 									onChange={e => setChainId(e.target.value)}
-									placeholder="eg. 1"
+									placeholder="enter/select chain"
 								/>
 							)}
+							<datalist id="chains-list">
+								{listKnownChains().map(c => (
+									<option
+										key={c.id}
+										value={String(c.id)}>
+										{c.name}
+									</option>
+								))}
+							</datalist>
 						</label>
 						{mode === 'token' && (
-							<label className="block">
-								<span className="mb-1 block text-sm font-medium text-gray-700">Token Address</span>
-								<input
-									className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-									value={tokenItems[0]?.address || ''}
-									onChange={e =>
-										setTokenItems(prev => [{...prev[0], address: e.target.value}, ...prev.slice(1)])
-									}
-									placeholder="0x..."
-								/>
-							</label>
+							<>
+								<label className="block">
+									<span className="mb-1 block text-sm font-medium text-gray-700">Token Address</span>
+									<input
+										className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+										value={tokenItems[0]?.address || ''}
+										onChange={e =>
+											setTokenItems(prev => [
+												{
+													...prev[0],
+													address: e.target.value,
+													addressValid: isEvmAddress(e.target.value)
+												},
+												...prev.slice(1)
+											])
+										}
+										onBlur={async () => {
+											const it = tokenItems[0];
+											if (!it || !isEvmAddress(it.address)) return;
+											const cid = Number(it.chainId || chainId);
+											if (!cid || Number.isNaN(cid)) return;
+											try {
+												setTokenItems(prev => [
+													{...prev[0], resolvingName: true, resolveError: ''},
+													...prev.slice(1)
+												]);
+												const name = await fetchErc20Name(String(cid), it.address);
+												setTokenItems(prev => [
+													{
+														...prev[0],
+														resolvingName: false,
+														name: prev[0].name || name,
+														resolveError: ''
+													},
+													...prev.slice(1)
+												]);
+											} catch (err: any) {
+												setTokenItems(prev => [
+													{
+														...prev[0],
+														resolvingName: false,
+														resolveError:
+															'Could not fetch token name. Please verify address.'
+													},
+													...prev.slice(1)
+												]);
+											}
+										}}
+										placeholder="0x..."
+									/>
+									{tokenItems[0]?.resolvingName && (
+										<p className="mt-1 text-xs text-gray-500">Fetching name…</p>
+									)}
+									{tokenItems[0]?.resolveError && (
+										<p className="mt-1 text-xs text-red-600">{tokenItems[0]?.resolveError}</p>
+									)}
+									{tokenItems[0]?.address && tokenItems[0]?.addressValid === false && (
+										<p className="mt-1 text-xs text-red-600">Invalid EVM address format</p>
+									)}
+								</label>
+								<label className="block">
+									<span className="mb-1 block text-sm font-medium text-gray-700">
+										Name (optional)
+									</span>
+									<input
+										className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+										value={tokenItems[0]?.name || ''}
+										onChange={e =>
+											setTokenItems(prev => [
+												{...prev[0], name: e.target.value},
+												...prev.slice(1)
+											])
+										}
+										placeholder="auto-fills if resolvable"
+									/>
+								</label>
+							</>
 						)}
 						{/* SVG input row */}
 						<div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -501,18 +707,42 @@ export const UploadComponent: React.FC = () => {
 							className="rounded-md border p-4">
 							<div className="mb-3 flex items-center justify-between">
 								<div className="text-sm font-medium text-gray-700">Token Asset #{idx + 2}</div>
-								<button
-									type="button"
-									className="text-sm text-red-600 hover:underline"
-									onClick={() => setTokenItems(p => p.filter((_, i) => i !== idx + 1))}>
-									Remove
-								</button>
+								<div className="flex items-center gap-3">
+									<button
+										type="button"
+										className="text-sm text-gray-600 hover:underline"
+										onClick={() =>
+											setTokenItems(p =>
+												p.map((x, i) =>
+													i === idx + 1
+														? {
+																chainId: '',
+																address: '',
+																name: '',
+																genPng: true,
+																files: {},
+																preview: {}
+														  }
+														: x
+												)
+											)
+										}>
+										Clear
+									</button>
+									<button
+										type="button"
+										className="text-sm text-red-600 hover:underline"
+										onClick={() => setTokenItems(p => p.filter((_, i) => i !== idx + 1))}>
+										Remove
+									</button>
+								</div>
 							</div>
 							<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 								<label className="block">
-									<span className="mb-1 block text-sm font-medium text-gray-700">Chain ID</span>
+									<span className="mb-1 block text-sm font-medium text-gray-700">Chain</span>
 									<input
 										className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+										list="chains-list"
 										value={it.chainId}
 										onChange={e =>
 											setTokenItems(prev =>
@@ -521,7 +751,48 @@ export const UploadComponent: React.FC = () => {
 												)
 											)
 										}
-										placeholder="1 or btcm"
+										onBlur={async () => {
+											const item = tokenItems[idx + 1];
+											if (!item || !isEvmAddress(item.address) || item.name) return;
+											const cid = Number(item.chainId || chainId);
+											if (!cid || Number.isNaN(cid)) return;
+											try {
+												setTokenItems(prev =>
+													prev.map((x, i) =>
+														i === idx + 1
+															? {...x, resolvingName: true, resolveError: ''}
+															: x
+													)
+												);
+												const name = await fetchErc20Name(String(cid), item.address);
+												setTokenItems(prev =>
+													prev.map((x, i) =>
+														i === idx + 1
+															? {
+																	...x,
+																	resolvingName: false,
+																	name: x.name || name,
+																	resolveError: ''
+															  }
+															: x
+													)
+												);
+											} catch (err: any) {
+												setTokenItems(prev =>
+													prev.map((x, i) =>
+														i === idx + 1
+															? {
+																	...x,
+																	resolvingName: false,
+																	resolveError:
+																		'Could not fetch token name. Please verify address.'
+															  }
+															: x
+													)
+												);
+											}
+										}}
+										placeholder="enter/select chain"
 									/>
 								</label>
 								<label className="block">
@@ -532,11 +803,78 @@ export const UploadComponent: React.FC = () => {
 										onChange={e =>
 											setTokenItems(prev =>
 												prev.map((x, i) =>
-													i === idx + 1 ? {...x, address: e.target.value} : x
+													i === idx + 1
+														? {
+																...x,
+																address: e.target.value,
+																addressValid: isEvmAddress(e.target.value)
+														  }
+														: x
 												)
 											)
 										}
+										onBlur={async () => {
+											const item = tokenItems[idx + 1];
+											if (!item || !isEvmAddress(item.address)) return;
+											const cid = Number(item.chainId || chainId);
+											if (!cid || Number.isNaN(cid)) return;
+											try {
+												setTokenItems(prev =>
+													prev.map((x, i) =>
+														i === idx + 1
+															? {...x, resolvingName: true, resolveError: ''}
+															: x
+													)
+												);
+												const name = await fetchErc20Name(String(cid), item.address);
+												setTokenItems(prev =>
+													prev.map((x, i) =>
+														i === idx + 1
+															? {
+																	...x,
+																	resolvingName: false,
+																	name: x.name || name,
+																	resolveError: ''
+															  }
+															: x
+													)
+												);
+											} catch (err: any) {
+												setTokenItems(prev =>
+													prev.map((x, i) =>
+														i === idx + 1
+															? {
+																	...x,
+																	resolvingName: false,
+																	resolveError:
+																		'Could not fetch token name. Please verify address.'
+															  }
+															: x
+													)
+												);
+											}
+										}}
 										placeholder="0x..."
+									/>
+									{it.resolvingName && <p className="mt-1 text-xs text-gray-500">Fetching name…</p>}
+									{it.resolveError && <p className="mt-1 text-xs text-red-600">{it.resolveError}</p>}
+									{it.address && it.addressValid === false && (
+										<p className="mt-1 text-xs text-red-600">Invalid EVM address format</p>
+									)}
+								</label>
+								<label className="block">
+									<span className="mb-1 block text-sm font-medium text-gray-700">
+										Name (optional)
+									</span>
+									<input
+										className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+										value={it.name || ''}
+										onChange={e =>
+											setTokenItems(prev =>
+												prev.map((x, i) => (i === idx + 1 ? {...x, name: e.target.value} : x))
+											)
+										}
+										placeholder="auto-fills if resolvable"
 									/>
 								</label>
 							</div>
@@ -710,13 +1048,25 @@ export const UploadComponent: React.FC = () => {
 			</form>
 
 			{/* PR Review Modal */}
-			<Transition show={reviewOpen} as={Fragment}>
-				<Dialog as="div" className="relative z-50" onClose={() => (submitting ? null : setReviewOpen(false))}>
-					<div className="fixed inset-0 bg-black/30" aria-hidden="true" />
+			<Transition
+				show={reviewOpen}
+				as={Fragment}>
+				<Dialog
+					as="div"
+					className="relative z-50"
+					onClose={() => (submitting ? null : setReviewOpen(false))}>
+					<div
+						className="fixed inset-0 bg-black/30"
+						aria-hidden="true"
+					/>
 					<div className="fixed inset-0 flex items-center justify-center p-4">
 						<Dialog.Panel className="w-full max-w-2xl rounded-lg bg-white p-6 shadow-xl">
-							<Dialog.Title className="text-lg font-semibold text-gray-900">Review PR Details</Dialog.Title>
-							<p className="mt-1 text-sm text-gray-600">Edit the title and description before creating the PR.</p>
+							<Dialog.Title className="text-lg font-semibold text-gray-900">
+								Review PR Details
+							</Dialog.Title>
+							<p className="mt-1 text-sm text-gray-600">
+								Edit the title and description before creating the PR.
+							</p>
 							<div className="mt-4 space-y-4">
 								<div>
 									<label className="mb-1 block text-sm font-medium text-gray-700">Title</label>
