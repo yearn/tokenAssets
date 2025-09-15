@@ -20,7 +20,7 @@ dotenv.config({path: fs.existsSync(envLocalPath) ? envLocalPath : envDefaultPath
 const app = express();
 const port = Number(process.env.PORT || 5174);
 
-// Debug flag can be enabled via CLI: `node server/index.ts --debug` (or `-d`)
+// Debug flag can be enabled via CLI: `node api/index.ts --debug` (or `-d`)
 const argv = process.argv.slice(2);
 const DEBUG = argv.includes('--debug') || argv.includes('-d');
 
