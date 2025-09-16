@@ -10,9 +10,10 @@
 
 ## Build, Test, and Development Commands
 
-- Format: `bun format` or `npm run format` — apply Prettier to repo.
-- Format check: `bun format:check` — verify formatting without changes.
-- Ingest prepared images: `node scripts/ingestTokens.js ./scripts/tokensToInjest.json` — copies/renames into `tokens/`.
+- SPA dev: `bun dev` in `app/image-tools` (Vite on `http://localhost:5173`).
+- Vercel dev: `vercel dev` in `app/image-tools` (serves API under `/api/*`).
+- Build/preview: `bun build` then `bun preview`.
+- Ingest assets: `node scripts/ingestTokens.js ./scripts/tokensToInjest.json` — copies prepared images into `tokens/`.
 
 ## Coding Style & Naming Conventions
 
@@ -24,10 +25,11 @@
 
 ## Testing Guidelines
 
-- No formal test suite. Validate via API preview:
-  - Open `/api/token/<chainId>/<address>/logo-32.png`.
-  - Ensure both PNGs exist and load; dimensions are exactly 32×32 and 128×128.
-- Prefer PNGs in production; keep SVGs simple and optimized.
+- No formal test suite. Validate via Vercel dev:
+  - OAuth callback: `/api/auth/github/callback` returns to `/auth/github/success`.
+  - ERC-20 name lookup: POST `/api/erc20-name` (Edge).
+  - Upload + PR: POST `/api/upload` (Edge) and confirm PR URL.
+- Ensure PNGs are exactly 32×32 and 128×128; keep SVGs optimized.
 
 ## Commit & Pull Request Guidelines
 

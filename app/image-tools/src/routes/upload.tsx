@@ -228,11 +228,11 @@ export const UploadComponent: React.FC = () => {
 			const chainsForBody = tokenItems.map(i => i.chainId || chainId || '').map(String);
 			const uniqueChains = Array.from(new Set(chainsForBody.filter(Boolean)));
 			const title = `feat: add token assets (${addressesForBody.length})`;
-			const directoryLocations = addressesForBody.flatMap((addr, i) => [
-				`/token/${chainsForBody[i]}/${addr}/logo.svg`,
-				`/atoken/${chainsForBody[i]}/${addr}/logo-32.png`,
-				`/token/${chainsForBody[i]}/${addr}/logo-128.png`
-			]);
+				const directoryLocations = addressesForBody.flatMap((addr, i) => [
+					`/token/${chainsForBody[i]}/${addr}/logo.svg`,
+					`/token/${chainsForBody[i]}/${addr}/logo-32.png`,
+					`/token/${chainsForBody[i]}/${addr}/logo-128.png`
+				]);
 			const body = [
 				`Chains: ${uniqueChains.join(', ')}`,
 				`Addresses: ${addressesForBody.join(', ')}`,
@@ -258,28 +258,40 @@ export const UploadComponent: React.FC = () => {
 		}
 	}
 
-	function buildFormData(withPrMeta?: {title: string; body: string}) {
+	async function dataUrlToFile(dataUrl: string, filename: string, type = 'image/png'): Promise<File> {
+		const res = await fetch(dataUrl);
+		const blob = await res.blob();
+		return new File([blob], filename, {type});
+	}
+
+	async function buildFormData(withPrMeta?: {title: string; body: string}) {
 		const body = new FormData();
 		body.append('target', mode);
 		body.append('chainId', chainId);
 		if (mode === 'token') {
-			tokenItems.forEach((it, i) => {
+			for (let i = 0; i < tokenItems.length; i++) {
+				const it = tokenItems[i];
 				body.append(`chainId_${i}`, it.chainId);
 				if (it.address) body.append('address', it.address);
 				if (it.files.svg) body.append(`svg_${i}`, it.files.svg);
-				body.append(`genPng_${i}`, String(it.genPng));
-				if (!it.genPng) {
-					if (it.files.png32) body.append(`png32_${i}`, it.files.png32);
-					if (it.files.png128) body.append(`png128_${i}`, it.files.png128);
-				}
-			});
-		} else {
-			body.append('genPng', String(chainGenPng));
-			if (chainFiles.svg) body.append('svg', chainFiles.svg);
-			if (!chainGenPng) {
-				if (chainFiles.png32) body.append('png32', chainFiles.png32);
-				if (chainFiles.png128) body.append('png128', chainFiles.png128);
+				// Ensure PNGs are attached; if genPng is true and files are missing, use previews to create PNGs client-side.
+				const needPng32 = !it.files.png32 && !!it.preview.png32;
+				const needPng128 = !it.files.png128 && !!it.preview.png128;
+				if (needPng32) body.append(`png32_${i}`, await dataUrlToFile(it.preview.png32!, 'logo-32.png'));
+				if (needPng128) body.append(`png128_${i}`, await dataUrlToFile(it.preview.png128!, 'logo-128.png'));
+				// Also include any user-provided PNGs
+				if (it.files.png32) body.append(`png32_${i}`, it.files.png32);
+				if (it.files.png128) body.append(`png128_${i}`, it.files.png128);
 			}
+		} else {
+			if (chainFiles.svg) body.append('svg', chainFiles.svg);
+			// Ensure chain PNGs are attached; generate from previews if needed.
+			const needP32 = !chainFiles.png32 && !!chainPreview.png32;
+			const needP128 = !chainFiles.png128 && !!chainPreview.png128;
+			if (needP32) body.append('png32', await dataUrlToFile(chainPreview.png32!, 'logo-32.png'));
+			if (needP128) body.append('png128', await dataUrlToFile(chainPreview.png128!, 'logo-128.png'));
+			if (chainFiles.png32) body.append('png32', chainFiles.png32);
+			if (chainFiles.png128) body.append('png128', chainFiles.png128);
 		}
 		if (withPrMeta) {
 			body.append('prTitle', withPrMeta.title);
@@ -302,7 +314,7 @@ export const UploadComponent: React.FC = () => {
 		setSubmitting(true);
 		try {
 			const reqUrl = new URL('/api/upload', API_BASE_URL).toString();
-			const form = buildFormData({title: prTitle, body: prBody});
+			const form = await buildFormData({title: prTitle, body: prBody});
 			const res = await fetch(reqUrl, {method: 'POST', headers: {Authorization: `Bearer ${token}`}, body: form});
 			if (!res.ok) {
 				const ct = res.headers.get('content-type') || '';
