@@ -2,6 +2,24 @@ export const config = { runtime: 'edge' };
 
 import { openPrWithFilesForkAware, getUserLogin } from './github';
 
+const CANONICAL_OWNER = 'yearn';
+const CANONICAL_REPO = 'tokenAssets';
+
+// Deploys triggered from personal forks should still open PRs against the
+// canonical org repo unless an explicit override is opt-in via env flag.
+function resolveTargetRepo(): { owner: string; repo: string } {
+	const envOwner = (process.env.REPO_OWNER as string)?.trim();
+	const envRepo = (process.env.REPO_NAME as string)?.trim();
+	const vercelOwner = (process.env.VERCEL_GIT_REPO_OWNER as string)?.trim();
+	const vercelRepo = (process.env.VERCEL_GIT_REPO_SLUG as string)?.trim();
+	const allowOverride = (process.env.ALLOW_REPO_OVERRIDE || '').toLowerCase() === 'true';
+
+	const owner = envOwner && (allowOverride || envOwner.toLowerCase() !== (vercelOwner || '').toLowerCase()) ? envOwner : CANONICAL_OWNER;
+	const repo = envRepo && (allowOverride || envRepo.toLowerCase() !== (vercelRepo || '').toLowerCase()) ? envRepo : CANONICAL_REPO;
+
+	return { owner, repo };
+}
+
 function isPng(bytes: Uint8Array): boolean {
   return (
     bytes.length > 24 &&
@@ -58,9 +76,8 @@ export default async function (req: Request): Promise<Response> {
     const prTitleOverride = String(form.get('prTitle') || '').trim();
     const prBodyOverride = String(form.get('prBody') || '').trim();
 
-    const prFiles: Array<{ path: string; contentBase64: string }> = [];
-    const owner = (process.env.REPO_OWNER as string) || 'yearn';
-    const repo = (process.env.REPO_NAME as string) || 'tokenAssets';
+	const prFiles: Array<{ path: string; contentBase64: string }> = [];
+	const { owner, repo } = resolveTargetRepo();
 
     if (target === 'token') {
       const addressesRaw = form.getAll('address') as string[];

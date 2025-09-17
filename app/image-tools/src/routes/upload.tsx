@@ -6,6 +6,7 @@ import {API_BASE_URL} from '../lib/api';
 import {Dialog, Switch, Transition} from '@headlessui/react';
 import {getRpcUrl, isEvmAddress, listKnownChains} from '../lib/chains';
 import {SegmentedToggle} from '../components/SegmentedToggle';
+import {AUTH_CHANGE_EVENT, TOKEN_STORAGE_KEY, readStoredToken} from '../lib/githubAuth';
 
 type TokenItem = {
 	chainId: string;
@@ -20,7 +21,7 @@ type TokenItem = {
 };
 
 export const UploadComponent: React.FC = () => {
-	const [token, setToken] = useState<string | null>(() => sessionStorage.getItem('github_token'));
+	const [token, setToken] = useState<string | null>(() => readStoredToken());
 	const [mode, setMode] = useState<'token' | 'chain'>('token');
 	const [chainId, setChainId] = useState('');
 	const [chainGenPng, setChainGenPng] = useState(true);
@@ -54,9 +55,18 @@ export const UploadComponent: React.FC = () => {
 	}, [chainId, mode, chainFiles, tokenItems, chainGenPng]);
 
 	useEffect(() => {
-		const handler = () => setToken(sessionStorage.getItem('github_token'));
+		if (typeof window === 'undefined') return;
+		const update = () => setToken(readStoredToken());
+		const handler = (event: StorageEvent) => {
+			if (!event.key || event.key === TOKEN_STORAGE_KEY) update();
+		};
+		const onAuth = () => update();
 		window.addEventListener('storage', handler);
-		return () => window.removeEventListener('storage', handler);
+		window.addEventListener(AUTH_CHANGE_EVENT, onAuth);
+		return () => {
+			window.removeEventListener('storage', handler);
+			window.removeEventListener(AUTH_CHANGE_EVENT, onAuth);
+		};
 	}, []);
 
 	// ---- Helpers: Token name lookup via JSON-RPC ----
