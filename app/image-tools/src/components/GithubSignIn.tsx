@@ -1,5 +1,15 @@
 import React, {useEffect, useState} from 'react';
 
+import {
+	broadcastAuthChange,
+	readStoredToken,
+	storeAuthState,
+	clearStoredAuth,
+	TOKEN_STORAGE_KEY,
+	AUTH_CHANGE_EVENT,
+	buildAuthorizeUrl
+} from '../lib/githubAuth';
+
 function randomState(len = 20) {
 	const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
 	let out = '';
@@ -12,42 +22,60 @@ export const GithubSignIn: React.FC = () => {
 	const [login, setLogin] = useState<string | null>(null);
 
 	useEffect(() => {
-		const t = sessionStorage.getItem('github_token');
-		setToken(t);
-		if (t) {
-			fetch('https://api.github.com/user', {
-				headers: {Authorization: `Bearer ${t}`}
-			})
-				.then(r => (r.ok ? r.json() : null))
-				.then(j => setLogin(j?.login ?? null))
-				.catch(() => setLogin(null));
-		} else {
-			setLogin(null);
-		}
+		if (typeof window === 'undefined') return;
+
+		const updateToken = () => setToken(readStoredToken());
+		updateToken();
+
+		const onStorage = (event: StorageEvent) => {
+			if (!event.key || event.key === TOKEN_STORAGE_KEY) updateToken();
+		};
+		const onAuthEvent = () => updateToken();
+		window.addEventListener('storage', onStorage);
+		window.addEventListener(AUTH_CHANGE_EVENT, onAuthEvent);
+		return () => {
+			window.removeEventListener('storage', onStorage);
+			window.removeEventListener(AUTH_CHANGE_EVENT, onAuthEvent);
+		};
 	}, []);
+
+	useEffect(() => {
+		if (!token) {
+			setLogin(null);
+			return;
+		}
+		let cancelled = false;
+		fetch('https://api.github.com/user', {
+			headers: {Authorization: `Bearer ${token}`}
+		})
+			.then(r => (r.ok ? r.json() : null))
+			.then(j => {
+				if (!cancelled) setLogin(j?.login ?? null);
+			})
+			.catch(() => {
+				if (!cancelled) setLogin(null);
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [token]);
 
 	const signIn = () => {
 		const state = randomState();
-		sessionStorage.setItem('auth_state', state);
+		storeAuthState(state);
 		const clientId = import.meta.env.VITE_GITHUB_CLIENT_ID;
 		if (!clientId) {
 			alert('Missing VITE_GITHUB_CLIENT_ID');
 			return;
 		}
-		const url = new URL('https://github.com/login/oauth/authorize');
-		url.searchParams.set('client_id', clientId);
-		url.searchParams.set('state', state);
-		url.searchParams.set('scope', 'public_repo');
-		window.location.href = url.toString();
+		window.location.href = buildAuthorizeUrl(clientId, state);
 	};
 
 	const signOut = () => {
-		sessionStorage.removeItem('github_token');
-		sessionStorage.removeItem('auth_state');
+		clearStoredAuth();
 		setToken(null);
 		setLogin(null);
-		// Broadcast to other tabs
-		window.dispatchEvent(new StorageEvent('storage', {key: 'github_token'}));
+		broadcastAuthChange();
 	};
 
 	if (token) {

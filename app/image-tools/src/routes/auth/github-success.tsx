@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { createRoute, useNavigate } from '@tanstack/react-router';
 import { rootRoute } from '../../router';
+import { broadcastAuthChange, clearStoredState, readStoredState, storeAuthToken } from '../../lib/githubAuth';
 
 const GithubSuccessComponent: React.FC = () => {
   const navigate = useNavigate();
@@ -8,13 +9,15 @@ const GithubSuccessComponent: React.FC = () => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
     const state = params.get('state');
-    const returnedState = sessionStorage.getItem('auth_state');
+    const returnedState = readStoredState();
     if (state && returnedState && state !== returnedState) {
       console.warn('OAuth state mismatch.');
     }
     if (token) {
-      sessionStorage.setItem('github_token', token);
+      storeAuthToken(token);
+      broadcastAuthChange();
     }
+    if (state) clearStoredState();
     navigate({ to: '/' });
   }, [navigate]);
 

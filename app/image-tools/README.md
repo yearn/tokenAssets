@@ -12,6 +12,7 @@ A lightweight SPA + Vercel Functions app for uploading token/chain assets and op
   - `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` — same GitHub OAuth App used by the client.
   - `APP_BASE_URL` — optional; default request origin. Only set if SPA and API are on different origins.
   - `REPO_OWNER` (default `yearn`), `REPO_NAME` (default `tokenAssets`).
+  - `ALLOW_REPO_OVERRIDE` — set to `true` only if you intentionally want to target a non-yearn repo when deploying from a fork.
 - GitHub OAuth App callback must match the current domain: `https://<domain>/api/auth/github/callback` (or `http://localhost:3000/...` for `vercel dev`).
 
 ## Commands
