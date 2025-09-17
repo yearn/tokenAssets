@@ -19,6 +19,9 @@ There are multiple different apps and elements in this repo. Please read careful
 - Check format: `yarn format:check` — verifies formatting without writing.
 - Next.js dev (API): `yarn --cwd _config/nodeAPI dev` — starts the local API for previewing assets.
 - Next.js build: `yarn --cwd _config/nodeAPI build` — type-checks and builds the API bundle.
+- Image tools dev: `bun dev` in `app/image-tools` (Vite on `http://localhost:5173`).
+- Image tools serverless preview: `vercel dev` in `app/image-tools` (serves `/api/*`).
+- Image tools build/preview: `bun build` then `bun preview` in `app/image-tools`.
 - Ingest assets: `node scripts/ingestTokens.js ./scripts/tokensToInjest.json` — copies/renames prepared images into `tokens/`.
 
 ## Coding Style & Naming Conventions
@@ -35,6 +38,10 @@ There are multiple different apps and elements in this repo. Please read careful
   - Running `yarn --cwd _config/nodeAPI dev` and fetching `/api/token/<chainId>/<address>/logo-32.png`.
   - Ensuring both PNG sizes exist and load; prefer PNG for production.
   - Running `yarn format:check` and `yarn --cwd _config/nodeAPI lint` when editing `_config/nodeAPI`.
+- For `app/image-tools`, validate via `vercel dev`:
+  - OAuth callback: `/api/auth/github/callback` returns to `/auth/github/success`.
+  - ERC-20 name lookup: POST `/api/erc20-name` (Edge).
+  - Upload + PR: POST `/api/upload` (Edge) and confirm the returned PR URL.
 
 ## Commit & Pull Request Guidelines
 
