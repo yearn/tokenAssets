@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { createRoute, useNavigate } from '@tanstack/react-router';
 import { rootRoute } from '../../router';
-import { broadcastAuthChange, clearStoredState, readStoredState, storeAuthToken } from '../../lib/githubAuth';
+import { broadcastAuthChange, clearAuthPending, clearStoredState, readStoredState, storeAuthToken } from '../../lib/githubAuth';
 
 const GithubSuccessComponent: React.FC = () => {
   const navigate = useNavigate();
@@ -13,6 +13,7 @@ const GithubSuccessComponent: React.FC = () => {
     if (state && returnedState && state !== returnedState) {
       console.warn('OAuth state mismatch.');
     }
+    clearAuthPending();
     if (token) {
       storeAuthToken(token);
       broadcastAuthChange();

@@ -1,6 +1,7 @@
 export const TOKEN_STORAGE_KEY = 'github_token';
 export const AUTH_STATE_STORAGE_KEY = 'auth_state';
 export const AUTH_CHANGE_EVENT = 'github-auth-changed';
+export const AUTH_PENDING_STORAGE_KEY = 'github_oauth_pending';
 
 export function buildAuthorizeUrl(clientId: string, state: string) {
 	const url = new URL('https://github.com/login/oauth/authorize');
@@ -54,6 +55,29 @@ export function clearStoredAuth() {
 	try {
 		sessionStorage.removeItem(TOKEN_STORAGE_KEY);
 		sessionStorage.removeItem(AUTH_STATE_STORAGE_KEY);
+	} catch {}
+}
+
+export function readAuthPending(): boolean {
+	if (typeof window === 'undefined') return false;
+	try {
+		return sessionStorage.getItem(AUTH_PENDING_STORAGE_KEY) === 'true';
+	} catch {
+		return false;
+	}
+}
+
+export function markAuthPending() {
+	if (typeof window === 'undefined') return;
+	try {
+		sessionStorage.setItem(AUTH_PENDING_STORAGE_KEY, 'true');
+	} catch {}
+}
+
+export function clearAuthPending() {
+	if (typeof window === 'undefined') return;
+	try {
+		sessionStorage.removeItem(AUTH_PENDING_STORAGE_KEY);
 	} catch {}
 }
 

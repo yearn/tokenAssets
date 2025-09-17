@@ -1,4 +1,5 @@
-import React, {useEffect, useState} from 'react';
+import React, {Fragment, useEffect, useState} from 'react';
+import {Dialog, Transition} from '@headlessui/react';
 
 import {
 	broadcastAuthChange,
@@ -7,7 +8,10 @@ import {
 	clearStoredAuth,
 	TOKEN_STORAGE_KEY,
 	AUTH_CHANGE_EVENT,
-	buildAuthorizeUrl
+	buildAuthorizeUrl,
+	markAuthPending,
+	clearAuthPending,
+	readAuthPending
 } from '../lib/githubAuth';
 
 function randomState(len = 20) {
@@ -19,18 +23,22 @@ function randomState(len = 20) {
 
 export const GithubSignIn: React.FC = () => {
 	const [token, setToken] = useState<string | null>(null);
+	const [connecting, setConnecting] = useState<boolean>(() => readAuthPending());
 	const [login, setLogin] = useState<string | null>(null);
 
 	useEffect(() => {
 		if (typeof window === 'undefined') return;
 
-		const updateToken = () => setToken(readStoredToken());
-		updateToken();
+		const syncState = () => {
+			setToken(readStoredToken());
+			setConnecting(readAuthPending());
+		};
+		syncState();
 
 		const onStorage = (event: StorageEvent) => {
-			if (!event.key || event.key === TOKEN_STORAGE_KEY) updateToken();
+			if (!event.key || event.key === TOKEN_STORAGE_KEY) syncState();
 		};
-		const onAuthEvent = () => updateToken();
+		const onAuthEvent = () => syncState();
 		window.addEventListener('storage', onStorage);
 		window.addEventListener(AUTH_CHANGE_EVENT, onAuthEvent);
 		return () => {
@@ -42,6 +50,7 @@ export const GithubSignIn: React.FC = () => {
 	useEffect(() => {
 		if (!token) {
 			setLogin(null);
+			setConnecting(false);
 			return;
 		}
 		let cancelled = false;
@@ -63,6 +72,8 @@ export const GithubSignIn: React.FC = () => {
 	const signIn = () => {
 		const state = randomState();
 		storeAuthState(state);
+		markAuthPending();
+		setConnecting(true);
 		const clientId = import.meta.env.VITE_GITHUB_CLIENT_ID;
 		if (!clientId) {
 			alert('Missing VITE_GITHUB_CLIENT_ID');
@@ -73,8 +84,10 @@ export const GithubSignIn: React.FC = () => {
 
 	const signOut = () => {
 		clearStoredAuth();
+		clearAuthPending();
 		setToken(null);
 		setLogin(null);
+		setConnecting(false);
 		broadcastAuthChange();
 	};
 
@@ -90,10 +103,49 @@ export const GithubSignIn: React.FC = () => {
 	}
 
 	return (
+	<>
 		<button
 			onClick={signIn}
 			className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50">
 			Sign in with GitHub
 		</button>
+		<Transition show={connecting && !token} as={Fragment} appear>
+			<Dialog as="div" className="relative z-50" onClose={() => {
+				clearAuthPending();
+				setConnecting(false);
+			}}>
+				<Transition.Child
+					as={Fragment}
+					enter="ease-out duration-200"
+					enterFrom="opacity-0"
+					enterTo="opacity-100"
+					leave="ease-in duration-150"
+					leaveFrom="opacity-100"
+					leaveTo="opacity-0">
+					<div className="fixed inset-0 bg-black/30" aria-hidden="true" />
+				</Transition.Child>
+				<Transition.Child
+					as={Fragment}
+					enter="ease-out duration-200"
+					enterFrom="opacity-0 scale-95"
+					enterTo="opacity-100 scale-100"
+					leave="ease-in duration-150"
+					leaveFrom="opacity-100 scale-100"
+					leaveTo="opacity-0 scale-95">
+					<Dialog.Panel className="fixed inset-0 flex items-center justify-center p-4">
+						<div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
+							<Dialog.Title className="text-lg font-medium text-gray-900">Connecting to GitHub…</Dialog.Title>
+							<p className="mt-2 text-sm text-gray-600">
+								We&apos;re redirecting you to GitHub to complete the sign-in.
+							</p>
+							<p className="mt-4 text-sm text-gray-500">
+								If nothing happens, check that pop-ups are allowed and try again.
+							</p>
+						</div>
+					</Dialog.Panel>
+				</Transition.Child>
+			</Dialog>
+		</Transition>
+	</>
 	);
 };
