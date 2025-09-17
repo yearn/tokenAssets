@@ -65,6 +65,37 @@ async function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+async function commitExists(token: string, owner: string, repo: string, commitSha: string): Promise<boolean> {
+	try {
+		await getCommit(token, owner, repo, commitSha);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+async function syncForkWithUpstream(token: string, owner: string, repo: string, branch: string) {
+	try {
+		await gh(token, 'POST', `https://api.github.com/repos/${owner}/${repo}/merge-upstream`, {
+			branch,
+		});
+	} catch (e: any) {
+		const msg = String(e?.message || '');
+		if (msg.includes('409') || msg.includes('422')) {
+			throw new Error('Unable to sync your fork with the upstream repository. Please update your fork to match upstream and retry.');
+		}
+		throw e;
+	}
+}
+
+async function ensureForkHasCommit(token: string, owner: string, repo: string, branch: string, commitSha: string) {
+	const exists = await commitExists(token, owner, repo, commitSha);
+	if (exists) return;
+	await syncForkWithUpstream(token, owner, repo, branch);
+	const stillMissing = !(await commitExists(token, owner, repo, commitSha));
+	if (stillMissing) throw new Error('Unable to prepare fork for PR creation. Please sync your fork with upstream and try again.');
+}
+
 export async function ensureFork(token: string, baseOwner: string, baseRepo: string, login?: string): Promise<{ owner: string; repo: string }>{
   const user = login || (await getUserLogin(token));
   // Trigger fork (idempotent)
@@ -118,12 +149,15 @@ export async function openPrWithFilesToBaseFromHead(params: {
   const baseInfo = await getRepoInfo(token, baseOwner, baseRepo);
   const baseBranch = baseInfo.default_branch;
 
-  // Prepare commit on head (fork) repo
-  const headInfo = await getRepoInfo(token, headOwner, headRepo);
-  const headBaseBranch = headInfo.default_branch;
-  const headRef = await getHeadRef(token, headOwner, headRepo, headBaseBranch);
-  const headBaseCommitSha = headRef.object.sha;
-  const headBaseCommit = await getCommit(token, headOwner, headRepo, headBaseCommitSha);
+  const baseRef = await getHeadRef(token, baseOwner, baseRepo, baseBranch);
+  const baseCommitSha = baseRef.object.sha;
+  const baseCommit = await getCommit(token, baseOwner, baseRepo, baseCommitSha);
+
+  if (headOwner !== baseOwner || headRepo !== baseRepo) {
+	const headInfo = await getRepoInfo(token, headOwner, headRepo);
+	const headBaseBranch = headInfo.default_branch;
+	await ensureForkHasCommit(token, headOwner, headRepo, headBaseBranch, baseCommitSha);
+  }
 
   const blobShas: Array<{ path: string; sha: string }> = [];
   for (const f of params.files) {
@@ -135,11 +169,11 @@ export async function openPrWithFilesToBaseFromHead(params: {
     token,
     headOwner,
     headRepo,
-    headBaseCommit.tree.sha,
+    baseCommit.tree.sha,
     blobShas.map((b) => ({ path: b.path, mode: '100644', type: 'blob', sha: b.sha }))
   );
 
-  const commit = await createCommit(token, headOwner, headRepo, params.commitMessage, tree.sha, headBaseCommitSha);
+  const commit = await createCommit(token, headOwner, headRepo, params.commitMessage, tree.sha, baseCommitSha);
 
   await createRef(token, headOwner, headRepo, params.branchName, commit.sha);
 
