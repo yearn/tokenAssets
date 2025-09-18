@@ -8,7 +8,7 @@ There are multiple different apps and elements in this repo. Please read careful
 
 - Source assets: `tokens/<chainId>/<address>/` with `logo.svg`, `logo-32.png`, `logo-128.png`.
 - Chain assets: `chains/<chainId>/`
-- Image Upload App: `app/image-tools/` contains a repo where users can upload token logos to the repo. It is wholly unrelated to anything in the `_config/` folder and when working on this app, you should ignore the _config folder and its contents.
+- Image Upload App: `app/image-tools/` contains a repo where users can upload token logos to the repo. It is wholly unrelated to anything in the `_config/` folder and when working on this app, you should ignore the \_config folder and its contents.
 - Deprecated APIs: `_config/`, `_config/nodeAPI`, and `_config/goAPI` contain legacy code for APIs to serve the token logos that we do not actively use but still support for legacy applications. Generally they should be ignored unless explicitly requested to work on them.
 - Automation: `scripts/` (e.g., `ingestTokens.js` and image inputs under `scripts/token-images-to-ingest/`).
 - Root configs: `.editorconfig`, `.prettierrc`, `package.json`.
@@ -63,20 +63,23 @@ Default to one shared integration branch per wave (e.g., `wave-1/shared-utilitie
 ## Worktree-Based Collaboration Workflow
 
 ### Roles
+
 - **Coordinating/Planning Agent** – sets up integration branches, allocates tasks, and keeps the tracker up to date.
 - **Task Agents** – implement scoped changes inside their assigned worktrees, run validations, and update task docs.
 - **Review Agent(s)** – perform focused reviews from a clean worktree, verify validations, and gate merges.
 
 ### Coordinator Setup
+
 1. Pick/prepare the integration branch (e.g., `wave-1/shared-utilities`) and push it upstream.
 2. Create named worktrees for each active branch:
-   - `git worktree add ../wave1 task/shared-utilities-alignment`
-   - `git worktree add ../wave1-devex task/developer-experience-upgrades`
-   - Keep a root worktree on `main` for syncing upstream or emergency fixes.
+    - `git worktree add ../wave1 task/shared-utilities-alignment`
+    - `git worktree add ../wave1-devex task/developer-experience-upgrades`
+    - Keep a root worktree on `main` for syncing upstream or emergency fixes.
 3. Record worktree paths plus assigned agents in `docs/tasks/improvement-review-tracker.md` so everyone knows where to work.
 4. Before assignments, run `git fetch --all --prune` from the main repo to keep every worktree in sync.
 
 ### Task Agent Flow
+
 1. `cd` into the assigned worktree (e.g., `../wave1`).
 2. Pull latest changes with `git pull --ff-only` to stay aligned with other agents on the same branch.
 3. Implement the task, keeping scope limited to the brief; update relevant docs/checklists there.
@@ -85,6 +88,7 @@ Default to one shared integration branch per wave (e.g., `wave-1/shared-utilitie
 6. Push upstream and note completion in the task document and tracker.
 
 ### Review Agent Flow
+
 1. Create a dedicated review worktree: `git worktree add ../wave1-review task/shared-utilities-alignment`.
 2. Pull latest, run the validation suite, and review diffs (`git diff origin/main...HEAD`).
 3. Leave review notes in the task doc or PR, tagging follow-ups for task agents.
@@ -92,6 +96,7 @@ Default to one shared integration branch per wave (e.g., `wave-1/shared-utilitie
 5. Remove stale review worktrees with `git worktree remove ../wave1-review` after merge.
 
 ### General Tips
+
 - Each worktree can only have one branch checked out; name folders clearly (`../waveX`, `../waveX-review`, etc.).
 - Always fetch/prune from the main repo directory (`tokenAssets/`) so every worktree sees updated refs.
 - Use `git worktree list` to audit active worktrees; remove unused ones to avoid stale state.
