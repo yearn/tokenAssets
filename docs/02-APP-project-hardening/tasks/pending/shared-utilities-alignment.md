@@ -33,7 +33,7 @@ Centralise reusable helpers (EVM utilities, API base URL logic) to minimise dupl
 - [x] `bun typecheck`
 - [x] `bun build`
 - [x] `bun test` (if unit tests implemented)
-- [ ] Spot-check bundle (e.g., `bun build` output or Vite stats) to confirm no unexpected size regressions.
+- [x] Spot-check bundle (e.g., `bun build` output or Vite stats) to confirm no unexpected size regressions.
 
 ## Completion Criteria
 
@@ -54,3 +54,4 @@ Centralise reusable helpers (EVM utilities, API base URL logic) to minimise dupl
 - `decodeAbiString` now uses `TextDecoder` and works without Node `Buffer`, unblocking edge runtimes.
 - API base URL builder exports `buildApiUrl`; client switched to it for stable path joining when base is `'/'`.
 - Added vitest with focused suites for EVM and API helpers; run via `bun run test` (maps to `vitest run`).
+- Shared helpers are exposed through the `@shared/*` alias (configured in Vite + TS) so API routes import without brittle relative paths.

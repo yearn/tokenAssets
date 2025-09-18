@@ -1,3 +1,5 @@
+import {resolveAppBaseUrl} from '@shared/api';
+
 export const config = { runtime: 'edge' };
 
 export default async function (req: Request): Promise<Response> {
@@ -39,7 +41,7 @@ export default async function (req: Request): Promise<Response> {
 			});
 		}
 
-		const appBase = process.env.APP_BASE_URL || new URL(req.url).origin;
+		const appBase = resolveAppBaseUrl(req);
 		const redirect = new URL('/auth/github/success', appBase);
 		redirect.searchParams.set('token', accessToken);
 		redirect.searchParams.set('state', state);
@@ -51,4 +53,3 @@ export default async function (req: Request): Promise<Response> {
 		});
 	}
 }
-
