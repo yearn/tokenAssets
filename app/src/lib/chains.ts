@@ -26,9 +26,11 @@ const DEFAULT_RPCS: Partial<Record<number, string>> = {
 export function getRpcUrl(chainId: number): string | undefined {
   // Prefer explicit env overrides
   const env = (import.meta as any).env || {};
+  const nodeEnv =
+    typeof process !== 'undefined' && process.env ? (process.env as Record<string, string | undefined>) : {};
   const k1 = `VITE_RPC_URI_FOR_${chainId}`;
   const k2 = `VITE_RPC_${chainId}`;
-  const fromEnv = (env[k1] as string | undefined) || (env[k2] as string | undefined);
+  const fromEnv = env[k1] || env[k2] || nodeEnv[k1] || nodeEnv[k2];
   if (fromEnv) return fromEnv;
   return DEFAULT_RPCS[chainId];
 }

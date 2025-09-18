@@ -12,7 +12,13 @@
 	"scripts": {
 		"format": "prettier --write . --verbose",
 		"prettier-format": "prettier --config .prettierrc \"./**/**/*.{js,mjs,ts,tsx,scss,md}\" --write",
-		"format:check": "prettier --check ."
+		"format:check": "prettier --check .",
+		"typecheck": "cd app && bun run typecheck",
+		"lint": "cd app && bun run lint",
+		"lint:fix": "cd app && bun run lint:fix",
+		"test": "cd app && bun run test",
+		"test:watch": "cd app && bun run test:watch",
+		"validate": "bun run typecheck && bun run lint && bun run test"
 	},
 	"devDependencies": {
 		"next": "^14.0.2",

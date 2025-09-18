@@ -22,6 +22,7 @@ There are multiple different apps and elements in this repo. Please read careful
 - Image tools dev: `bun dev` in `app` (Vite on `http://localhost:5173`).
 - Image tools serverless preview: `vercel dev` in `app` (serves `/api/*`).
 - Image tools build/preview: `bun build` then `bun preview` in `app`.
+- Image tools lint/typecheck/tests: `bun lint`, `bun typecheck`, `bun test` (or `bun run validate` for all three).
 - Ingest assets: `node scripts/ingestTokens.js ./scripts/tokensToInjest.json` — copies/renames prepared images into `tokens/`.
 
 ## Coding Style & Naming Conventions
@@ -42,6 +43,7 @@ There are multiple different apps and elements in this repo. Please read careful
   - OAuth callback: `/api/auth/github/callback` returns to `/auth/github/success`.
   - ERC-20 name lookup: POST `/api/erc20-name` (Edge).
   - Upload + PR: POST `/api/upload` (Edge) and confirm the returned PR URL.
+- Optional: enable `scripts/git-hooks/pre-commit` (copy from `.sample`) via `git config core.hooksPath scripts/git-hooks` to run lint/typecheck/tests before committing.
 
 ## Commit & Pull Request Guidelines
 

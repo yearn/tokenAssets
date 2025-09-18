@@ -13,6 +13,7 @@
 - SPA dev: `bun dev` in `app` (Vite on `http://localhost:5173`).
 - Vercel dev: `vercel dev` in `app` (serves API under `/api/*`).
 - Build/preview: `bun build` then `bun preview`.
+- Lint/typecheck/tests: `bun lint`, `bun typecheck`, `bun test` (or `bun run validate`).
 - Ingest assets: `node scripts/ingestTokens.js ./scripts/tokensToInjest.json` — copies prepared images into `tokens/`.
 
 ## Coding Style & Naming Conventions
@@ -25,7 +26,8 @@
 
 ## Testing Guidelines
 
-- No formal test suite. Validate via Vercel dev:
+- Run unit tests with `bun test` (vitest, jsdom environment).
+- Validate via Vercel dev for end-to-end flows:
   - OAuth callback: `/api/auth/github/callback` returns to `/auth/github/success`.
   - ERC-20 name lookup: POST `/api/erc20-name` (Edge).
   - Upload + PR: POST `/api/upload` (Edge) and confirm PR URL.

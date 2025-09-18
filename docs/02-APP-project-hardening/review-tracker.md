@@ -14,6 +14,7 @@ None — kick off a task by creating `task/<slug>` from `chore/project-hardening
 
 | Task | Branch | Worktree | Agent | MCP `conversationId` | Status |
 | --- | --- | --- | --- | --- | --- |
+| Developer Experience Upgrades | `task/developer-experience-upgrades-manual` | `/home/ross/code/yearn/tokenAssets/worktrees/task-developer-experience-upgrades` | Coordinator (manual) | n/a | In progress |
 
 ## Pending Task Queue (from overview)
 

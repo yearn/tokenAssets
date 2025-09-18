@@ -10,11 +10,11 @@ Strengthen linting, testing, and documentation so contributors can ship changes 
 
 ## Implementation Checklist
 
-1. [ ] Add ESLint with `@typescript-eslint` and `eslint-plugin-react`, including configs aligned with existing Prettier settings.
-2. [ ] Introduce `vitest` for unit testing shared utilities (PNG helpers, auth storage, etc.) and add example tests.
-3. [ ] Wire lint and test scripts into CI (document pipeline expectations even if CI config lives elsewhere).
-4. [ ] Update contributor docs to outline new commands (`bun lint`, `bun test`, `bun run lint`, etc.).
-5. [ ] Consider adding a pre-commit hook template (e.g., Husky or lint-staged) while keeping dependency footprint minimal.
+1. [x] Add ESLint with `@typescript-eslint` and `eslint-plugin-react`, including configs aligned with existing Prettier settings.
+2. [x] Introduce `vitest` for unit testing shared utilities (PNG helpers, auth storage, etc.) and add example tests.
+3. [x] Wire lint and test scripts into CI (document pipeline expectations even if CI config lives elsewhere).
+4. [x] Update contributor docs to outline new commands (`bun lint`, `bun test`, `bun run lint`, etc.).
+5. [x] Consider adding a pre-commit hook template (e.g., Husky or lint-staged) while keeping dependency footprint minimal.
 
 ### Agent Context
 
@@ -24,10 +24,10 @@ Strengthen linting, testing, and documentation so contributors can ship changes 
 
 ## Validation Checklist
 
-- [ ] `bun typecheck`
-- [ ] `bun lint` (ESLint)
-- [ ] `bun test`
-- [ ] Documentation changes reviewed for accuracy and clarity.
+- [x] `bun typecheck`
+- [x] `bun lint` (ESLint)
+- [x] `bun test`
+- [x] Documentation changes reviewed for accuracy and clarity.
 
 ## Completion Criteria
 
