@@ -1,6 +1,6 @@
 # Agent Workflow Template
 
-The full documentation for OpenAI's Codex coding agents can be found at <codex-docs-path> (update with your local reference).
+The full documentation for OpenAI's Codex coding agents can be found at ~/code/codex/docs (update with your local reference).
 
 ## Worktree-Based Collaboration Workflow
 
@@ -28,7 +28,7 @@ The full documentation for OpenAI's Codex coding agents can be found at <codex-d
 
 ### Coordinator Setup
 
-1. **Create and prepare the integration branch** for the current wave of tasks:
+- [ ] **Create and prepare the integration branch** for the current wave of tasks:
 
     ```bash
     cd <repo-root>/<primary-worktree>
@@ -37,14 +37,14 @@ The full documentation for OpenAI's Codex coding agents can be found at <codex-d
     git push -u origin <integration-branch>
     ```
 
-2. **Create a dedicated coordinator worktree** on the integration branch to avoid conflicts with personal development work:
+- [ ] **Create a dedicated coordinator worktree** on the integration branch to avoid conflicts with personal development work:
 
     ```bash
     git worktree add <coordinator-worktree> <integration-branch>
     cd <coordinator-worktree>
     ```
 
-3. Launch a Codex MCP server session the coordinator can call:
+- [ ] **Launch a Codex MCP server session** the coordinator can call:
 
     ```bash
     codex mcp --sandbox <sandbox-mode> --approval-policy <approval-policy>
@@ -52,7 +52,7 @@ The full documentation for OpenAI's Codex coding agents can be found at <codex-d
 
     Use the MCP Inspector (or your preferred client) to confirm that the `codex` and `codex-reply` tools are available so new agents can be spawned on demand.
 
-4. Create named worktrees for each task agent on their respective feature branches:
+- [ ] **Create named worktrees** for each task agent on their respective feature branches:
 
     ```bash
     git worktree add <task-worktree> <task-branch>
@@ -60,13 +60,13 @@ The full documentation for OpenAI's Codex coding agents can be found at <codex-d
 
     Repeat for each task you plan to run in parallel. Keep the `<primary-worktree>` checked out on the default branch for syncing upstream or emergency fixes.
 
-5. Record worktree paths, assigned agents, and their MCP `conversationId` values in `<task-tracker-path>` so everyone knows where to work.
+- [ ] **Record worktree paths, assigned agents, and MCP `conversationId`s** in `<task-tracker-path>` so everyone knows where to work.
 
-6. Before assigning work, run `git fetch --all --prune` from `<primary-worktree>` to keep every worktree in sync with upstream.
+- [ ] **Refresh remotes** before assigning work: run `git fetch --all --prune` from `<primary-worktree>`.
 
 ### Starting Task Agents via MCP
 
-The coordinating agent creates task-specific Codex sessions by calling the MCP `codex` tool. Provide a focused prompt, matching sandbox settings, and the worktree path you prepared above.
+- [ ] **Create a task session:** call the MCP `codex` tool with a focused prompt, matching sandbox settings, and the prepared worktree path.
 
 ```bash
 codex mcp call codex <<'JSON'
@@ -80,8 +80,8 @@ codex mcp call codex <<'JSON'
 JSON
 ```
 
-- The MCP server response includes a `conversationId`; store it in `<task-tracker-path>` next to the agent and worktree assignment so you can resume the conversation via the `codex-reply` tool.
-- To follow up with an existing agent session, call `codex mcp call codex-reply` with the stored `conversationId` and your new prompt (e.g., status checks, escalations, or clarifications).
+- [ ] **Store session metadata:** record the returned `conversationId` in `<task-tracker-path>` next to the agent and worktree assignment so you can resume the conversation via the `codex-reply` tool.
+- [ ] **Follow-up when needed:** call `codex mcp call codex-reply` with the stored `conversationId` for status checks, escalations, or clarifications.
 
 ### Task Agent Flow
 
