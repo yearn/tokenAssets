@@ -50,6 +50,8 @@ The full documentation for OpenAI's Codex coding agents can be found at ~/code/c
     cd <coordinator-worktree>
     ```
 
+- [ ] **Instantiate the review tracker** (if it does not exist yet) by copying `docs/02-APP-project-hardening/templates/review-tracker-template.md` into `<task-tracker-path>` and seeding the task queue from `docs/02-APP-project-hardening/overview.md` so coordination starts with an accurate backlog snapshot.
+
 - [ ] **Launch a Codex MCP server session** the coordinator can call:
 
     ```bash
