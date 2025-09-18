@@ -17,10 +17,11 @@ The full documentation for OpenAI's Codex coding agents can be found at ~/code/c
 | `<repo-root>` | Absolute path to the repository root that hosts the `main` worktree |
 | `<primary-worktree>` | Directory that tracks the default branch (commonly `main/`) |
 | `<integration-branch>` | Branch that coordinates a wave of tasks |
-| `<coordinator-worktree>` | Worktree path dedicated to coordination duties |
+| `<worktree-root>` | Parent directory that stores coordination/task/review worktrees |
+| `<coordinator-worktree>` | Worktree path dedicated to coordination duties (e.g., `<worktree-root>/coordinator`) |
 | `<task-branch>` | Branch dedicated to a specific task |
-| `<task-worktree>` | Worktree path assigned to an individual task agent |
-| `<review-worktree>` | Worktree path used by a review agent |
+| `<task-worktree>` | Worktree path assigned to an individual task agent (e.g., `<worktree-root>/task-<slug>`) |
+| `<review-worktree>` | Worktree path used by a review agent (e.g., `<worktree-root>/quality-control`) |
 | `<task-tracker-path>` | Documentation file that records assignments and status |
 | `<sandbox-mode>` | MCP sandbox mode (e.g., `workspace-write`) |
 | `<approval-policy>` | MCP approval policy (e.g., `on-request`) |
@@ -28,7 +29,7 @@ The full documentation for OpenAI's Codex coding agents can be found at ~/code/c
 
 > **Sandbox reminder:** When the harness restricts network access, rerun required remote commands (for example, `git fetch`) with the MCP escalation flag and a brief justification so the coordinator can obtain approval.
 
-> **Persistent worktrees:** Consider keeping long-lived folders such as `coordinator/` or `quality-control/` checked out on integration or review branches so you can reuse them across waves.
+> **Worktree root:** Choose a dedicated parent folder (for example, `<repo-root>/worktrees/`) to host all agent worktrees so they stay isolated from the primary checkout.
 
 ### Coordinator Setup
 
@@ -44,6 +45,7 @@ The full documentation for OpenAI's Codex coding agents can be found at ~/code/c
 - [ ] **Create a dedicated coordinator worktree** on the integration branch to avoid conflicts with personal development work:
 
     ```bash
+    mkdir -p <worktree-root>
     git worktree add <coordinator-worktree> <integration-branch>
     cd <coordinator-worktree>
     ```
@@ -59,6 +61,7 @@ The full documentation for OpenAI's Codex coding agents can be found at ~/code/c
 - [ ] **Create named worktrees** for each task agent on their respective feature branches:
 
     ```bash
+    mkdir -p <worktree-root>
     git worktree add <task-worktree> <task-branch>
     ```
 
