@@ -1,6 +1,4 @@
-# Agent Workflow Guide
-
-This document provides a comprehensive guide for agentic systems working with Git worktrees in the tokenAssets repository.
+# Agent Workflow Documentation
 
 ## Worktree-Based Collaboration Workflow
 
@@ -14,15 +12,15 @@ This document provides a comprehensive guide for agentic systems working with Gi
 
 1. Pick/prepare the integration branch (e.g., `wave-1/shared-utilities`) and push it upstream.
 2. Create named worktrees for each active branch:
-    - `git worktree add ../wave1 task/shared-utilities-alignment`
+    - `git worktree add ../wave1-shared-utils task/shared-utilities-alignment`
     - `git worktree add ../wave1-devex task/developer-experience-upgrades`
-    - Keep a root worktree on `main` for syncing upstream or emergency fixes.
+    - Keep the main worktree in `main/` for syncing upstream or emergency fixes.
 3. Record worktree paths plus assigned agents in `docs/tasks/improvement-review-tracker.md` so everyone knows where to work.
 4. Before assignments, run `git fetch --all --prune` from the main repo to keep every worktree in sync.
 
 ### Task Agent Flow
 
-1. `cd` into the assigned worktree (e.g., `../wave1`).
+1. `cd` into the assigned worktree (e.g., `../wave1-shared-utils`).
 2. Pull latest changes with `git pull --ff-only` to stay aligned with other agents on the same branch.
 3. Implement the task, keeping scope limited to the brief; update relevant docs/checklists there.
 4. Run required validations (typecheck, build, tests) from the same directory.
@@ -31,338 +29,223 @@ This document provides a comprehensive guide for agentic systems working with Gi
 
 ### Review Agent Flow
 
-1. Create a dedicated review worktree: `git worktree add ../wave1-review task/shared-utilities-alignment`.
+1. Create a dedicated review worktree: `git worktree add ../review-wave1-shared-utils task/shared-utilities-alignment`.
 2. Pull latest, run the validation suite, and review diffs (`git diff origin/main...HEAD`).
 3. Leave review notes in the task doc or PR, tagging follow-ups for task agents.
 4. Once approved, coordinate with the maintainer to merge the shared branch into the integration branch (or directly into `improvement-review-implementation`, per plan).
-5. Remove stale review worktrees with `git worktree remove ../wave1-review` after merge.
+5. Remove stale review worktrees with `git worktree remove ../review-wave1-shared-utils` after merge.
 
 ### General Tips
 
-- Each worktree can only have one branch checked out; name folders clearly (`../waveX`, `../waveX-review`, etc.).
-- Always fetch/prune from the main repo directory (`tokenAssets/`) so every worktree sees updated refs.
+- Each worktree can only have one branch checked out; name folders clearly (`../wave1-shared-utils`, `../review-wave1-shared-utils`, etc.).
+- Always fetch/prune from the main repo directory (`tokenAssets-project/main/`) so every worktree sees updated refs.
 - Use `git worktree list` to audit active worktrees; remove unused ones to avoid stale state.
 - Share scripts/configs via the repo (not per-worktree) so validation commands behave consistently.
 
-## Step-by-Step Workflows
+## Detailed Step-by-Step Agent Workflows
 
 ### Coordinating/Planning Agent Workflow
 
 #### Initial Setup Phase
 
-1. **Assess Current State**
+```bash
+# 1. Navigate to main repo
+cd /home/ross/code/yearn/tokenAssets-project/main
 
-    ```bash
-    cd /home/ross/code/yearn/tokenAssets
-    git status
-    git branch -a
-    git worktree list
-    ```
+# 2. Ensure clean state and latest upstream
+git fetch --all --prune
+git checkout main
+git pull --ff-only
 
-2. **Create Integration Branches**
+# 3. Create integration branch for the wave
+git checkout -b wave-1/shared-utilities
+git push -u origin wave-1/shared-utilities
 
-    ```bash
-    # Create and push integration branches for each wave
-    git checkout main
-    git pull origin main
-    git checkout -b wave-1/shared-utilities
-    git push -u origin wave-1/shared-utilities
+# 4. Create worktrees for task agents
+git worktree add ../wave1-shared-utils wave-1/shared-utilities
+git worktree add ../wave1-devex task/developer-experience-upgrades
 
-    git checkout -b wave-2/api-improvements
-    git push -u origin wave-2/api-improvements
-    ```
+# 5. Create task tracker document
+mkdir -p docs/tasks
+touch docs/tasks/improvement-review-tracker.md
 
-3. **Set Up Worktrees for Task Agents**
+# 6. Record worktree assignments in tracker
+echo "# Wave 1 Task Assignments" >> docs/tasks/improvement-review-tracker.md
+echo "- Agent A: ../wave1-shared-utils (wave-1/shared-utilities)" >> docs/tasks/improvement-review-tracker.md
+echo "- Agent B: ../wave1-devex (task/developer-experience-upgrades)" >> docs/tasks/improvement-review-tracker.md
 
-    ```bash
-    # Create worktrees for each task branch
-    git worktree add ../wave1-utilities task/shared-utilities-alignment
-    git worktree add ../wave1-devex task/developer-experience-upgrades
-    git worktree add ../wave2-api task/api-erc20-enhancements
-    git worktree add ../wave2-upload task/api-upload-hardening
-    ```
-
-4. **Create Task Documentation**
-
-    ```bash
-    # Ensure docs directory exists
-    mkdir -p docs/tasks
-
-    # Create tracker file
-    touch docs/tasks/improvement-review-tracker.md
-    ```
-
-5. **Record Worktree Assignments**
-
-    ```bash
-    # Update tracker with worktree assignments
-    echo "# Worktree Assignments" > docs/tasks/improvement-review-tracker.md
-    echo "- ../wave1-utilities: task/shared-utilities-alignment (Agent-TaskA)" >> docs/tasks/improvement-review-tracker.md
-    echo "- ../wave1-devex: task/developer-experience-upgrades (Agent-TaskB)" >> docs/tasks/improvement-review-tracker.md
-    echo "- ../wave2-api: task/api-erc20-enhancements (Agent-TaskC)" >> docs/tasks/improvement-review-tracker.md
-    ```
-
-6. **Sync All Worktrees**
-
-    ```bash
-    git fetch --all --prune
-    ```
+# 7. Commit and push tracker
+git add docs/tasks/improvement-review-tracker.md
+git commit -m "chore: initialize wave 1 task assignments"
+git push
+```
 
 #### Ongoing Coordination
 
-1. **Monitor Progress**
+```bash
+# Monitor worktree status
+git worktree list
 
-    ```bash
-    # Check all worktree status
-    git worktree list
+# Sync all worktrees with upstream
+git fetch --all --prune
 
-    # Check for updates from task agents
-    git fetch --all --prune
-    for branch in task/shared-utilities-alignment task/developer-experience-upgrades; do
-      echo "=== $branch ==="
-      git log --oneline origin/$branch ^origin/main
-    done
-    ```
+# Check task completion status
+git log --oneline --graph --all
 
-2. **Update Task Assignments**
-
-    ```bash
-    # Update tracker as tasks complete
-    vim docs/tasks/improvement-review-tracker.md
-    git add docs/tasks/improvement-review-tracker.md
-    git commit -m "chore: update task progress"
-    git push
-    ```
+# Update task assignments as needed
+vim docs/tasks/improvement-review-tracker.md
+git add docs/tasks/improvement-review-tracker.md
+git commit -m "chore: update task assignments"
+git push
+```
 
 ### Task Agent Workflow
 
 #### Initial Assignment
 
-1. **Navigate to Assigned Worktree**
+```bash
+# 1. Navigate to assigned worktree
+cd /home/ross/code/yearn/tokenAssets-project/wave1-shared-utils
 
-    ```bash
-    cd ../wave1-utilities  # or assigned worktree path
-    pwd  # verify location
-    git status  # verify branch
-    ```
+# 2. Ensure latest state
+git fetch --all --prune
+git pull --ff-only
 
-2. **Sync with Latest Changes**
+# 3. Verify current branch and status
+git status
+git branch -v
 
-    ```bash
-    git pull --ff-only
-    ```
-
-3. **Verify Environment**
-
-    ```bash
-    # Check if this is image-tools work
-    if [ -d "app/image-tools" ]; then
-      cd app/image-tools
-      bun install  # ensure dependencies
-    fi
-    ```
+# 4. Review task assignment
+cat docs/tasks/improvement-review-tracker.md
+```
 
 #### Implementation Phase
 
-1. **Implement Changes**
+```bash
+# 1. Make changes according to task brief
+# (Edit files as needed)
 
-    ```bash
-    # Example: Create shared utilities
-    mkdir -p src/shared
-    touch src/shared/evm.ts
-    touch src/shared/image.ts
+# 2. Run validations from worktree directory
+yarn format:check
+yarn --cwd _config/nodeAPI lint
+yarn --cwd _config/nodeAPI build
 
-    # Make actual changes to files
-    # (Implementation details depend on specific task)
-    ```
+# For image-tools changes (if applicable):
+cd app/image-tools
+bun build
+cd ../..
 
-2. **Run Validations**
+# 3. Test locally
+yarn --cwd _config/nodeAPI dev &
+# Test endpoints manually
+curl http://localhost:3000/api/token/1/0x...
+kill %1  # Stop dev server
 
-    ```bash
-    # For image-tools tasks
-    cd app/image-tools
-    bun run lint
-    bun run build
-    bun run test  # if tests exist
-
-    # For root-level tasks
-    cd ../../
-    yarn format:check
-    yarn --cwd _config/nodeAPI build  # if API changes
-    ```
-
-3. **Update Documentation**
-
-    ```bash
-    # Update task checklist
-    vim docs/tasks/[task-name].md
-    # Mark completed items, add notes
-    ```
+# 4. Stage and review changes
+git add .
+git diff --staged
+```
 
 #### Completion Phase
 
-1. **Commit Changes**
+```bash
+# 1. Commit with conventional message
+git commit -m "chore: align shared utilities with new standards"
 
-    ```bash
-    git add .
-    git commit -m "feat: implement shared EVM utilities
+# 2. Push to upstream
+git push
 
-    - Add isEvmAddress validation
-    - Add decodeAbiString helper
-    - Export getRpcUrl function
-    - Update task checklist"
-    ```
+# 3. Update task tracker
+echo "- [x] Shared utilities alignment completed" >> docs/tasks/improvement-review-tracker.md
+git add docs/tasks/improvement-review-tracker.md
+git commit -m "chore: mark shared utilities task complete"
+git push
 
-2. **Push to Upstream**
-
-    ```bash
-    git push origin task/shared-utilities-alignment
-    ```
-
-3. **Update Tracker**
-
-    ```bash
-    # Update main tracker from root worktree
-    cd /home/ross/code/yearn/tokenAssets
-    vim docs/tasks/improvement-review-tracker.md
-    # Mark task as complete
-    git add docs/tasks/improvement-review-tracker.md
-    git commit -m "chore: mark shared-utilities task complete"
-    git push
-    ```
+# 4. Notify coordinator
+echo "Task completed in $(pwd), ready for review"
+```
 
 ### Review Agent Workflow
 
 #### Setup Review Environment
 
-1. **Create Review Worktree**
+```bash
+# 1. Navigate to main repo
+cd /home/ross/code/yearn/tokenAssets-project/main
 
-    ```bash
-    cd /home/ross/code/yearn/tokenAssets
-    git fetch --all --prune
-    git worktree add ../review-utilities task/shared-utilities-alignment
-    cd ../review-utilities
-    ```
+# 2. Create fresh review worktree
+git fetch --all --prune
+git worktree add ../review-wave1-shared-utils wave-1/shared-utilities
 
-2. **Verify Branch State**
+# 3. Navigate to review environment
+cd ../review-wave1-shared-utils
 
-    ```bash
-    git status
-    git log --oneline -10
-    git diff origin/main...HEAD --stat
-    ```
+# 4. Ensure latest state
+git pull --ff-only
+```
 
 #### Review Process
 
-1. **Run Full Validation Suite**
+```bash
+# 1. Run full validation suite
+yarn format:check
+yarn --cwd _config/nodeAPI lint
+yarn --cwd _config/nodeAPI build
 
-    ```bash
-    # Root level validations
-    yarn format:check
+# For image-tools validation:
+cd app/image-tools
+bun build
+vercel dev &
+# Test upload functionality
+curl -X POST http://localhost:3000/api/erc20-name -d '{"address":"0x...", "chainId":1}'
+kill %1
+cd ../..
 
-    # Image tools validations (if applicable)
-    cd app/image-tools
-    bun install
-    bun run lint
-    bun run build
-    bun run test
+# 2. Review code changes
+git diff origin/main...HEAD
+git log --oneline origin/main..HEAD
 
-    # API validations (if applicable)
-    cd ../../_config/nodeAPI
-    yarn install
-    yarn build
-    yarn lint
-    ```
+# 3. Check for conflicts or issues
+git merge-base origin/main HEAD
+git diff --name-only origin/main...HEAD
 
-2. **Review Code Changes**
-
-    ```bash
-    cd ../../  # back to root
-
-    # Review specific files changed
-    git diff origin/main...HEAD --name-only
-
-    # Detailed review of changes
-    git diff origin/main...HEAD
-
-    # Review commit history
-    git log --oneline origin/main..HEAD
-    ```
-
-3. **Test Functionality**
-
-    ```bash
-    # Test image tools if changed
-    cd app/image-tools
-    vercel dev &  # start dev server
-    # Test endpoints manually or with curl
-
-    # Test API if changed
-    cd ../../_config/nodeAPI
-    yarn dev &  # start dev server
-    # Test token endpoints
-    ```
-
-#### Review Documentation
-
-1. **Check Task Completion**
-
-    ```bash
-    # Review task documentation
-    cat docs/tasks/[task-name].md
-
-    # Verify all checklist items addressed
-    # Check for proper documentation updates
-    ```
-
-2. **Leave Review Notes**
-
-    ```bash
-    # Create review notes file
-    echo "# Review Notes for task/shared-utilities-alignment" > REVIEW-NOTES.md
-    echo "" >> REVIEW-NOTES.md
-    echo "## Validation Results" >> REVIEW-NOTES.md
-    echo "- [x] Lint: PASSED" >> REVIEW-NOTES.md
-    echo "- [x] Build: PASSED" >> REVIEW-NOTES.md
-    echo "- [x] Format: PASSED" >> REVIEW-NOTES.md
-    echo "" >> REVIEW-NOTES.md
-    echo "## Code Review" >> REVIEW-NOTES.md
-    echo "- EVM utilities properly exported" >> REVIEW-NOTES.md
-    echo "- Type definitions included" >> REVIEW-NOTES.md
-    echo "" >> REVIEW-NOTES.md
-    echo "## Status: APPROVED" >> REVIEW-NOTES.md
-    ```
+# 4. Verify asset structure (if applicable)
+find tokens/ -name "logo*.png" | head -10
+find tokens/ -name "logo.svg" | head -10
+```
 
 #### Approval & Cleanup
 
-1. **Approve & Merge Preparation**
+```bash
+# 1. Document review results
+echo "## Review Results - Wave 1 Shared Utils" >> docs/tasks/improvement-review-tracker.md
+echo "- ✅ Code quality: PASS" >> docs/tasks/improvement-review-tracker.md
+echo "- ✅ Validation suite: PASS" >> docs/tasks/improvement-review-tracker.md
+echo "- ✅ No conflicts with main: PASS" >> docs/tasks/improvement-review-tracker.md
 
-    ```bash
-    # If approved, prepare for merge
-    git checkout main
-    git pull origin main
-    git merge --no-ff task/shared-utilities-alignment
-    git push origin main
-    ```
+# 2. Approve for merge (if passed)
+git add docs/tasks/improvement-review-tracker.md
+git commit -m "chore: approve wave1 shared utilities for merge"
+git push
 
-2. **Clean Up Review Worktree**
+# 3. Navigate back to main for merge coordination
+cd ../main
 
-    ```bash
-    cd /home/ross/code/yearn/tokenAssets
-    git worktree remove ../review-utilities
-    ```
+# 4. Merge the reviewed branch
+git checkout main
+git pull --ff-only
+git merge --no-ff wave-1/shared-utilities
+git push
 
-3. **Update Tracker**
+# 5. Clean up review worktree
+git worktree remove ../review-wave1-shared-utils
 
-    ```bash
-    vim docs/tasks/improvement-review-tracker.md
-    # Mark as reviewed and merged
-    git add docs/tasks/improvement-review-tracker.md
-    git commit -m "chore: mark shared-utilities reviewed and merged"
-    git push
-    ```
+# 6. Optional: Clean up feature branch
+git branch -d wave-1/shared-utilities
+git push origin --delete wave-1/shared-utilities
+```
 
-## Common Commands Reference
+## Quick Reference Commands
 
 ### Worktree Management
 
@@ -371,63 +254,45 @@ This document provides a comprehensive guide for agentic systems working with Gi
 git worktree list
 
 # Add new worktree
-git worktree add <path> <branch>
+git worktree add ../worktree-name branch-name
 
 # Remove worktree
-git worktree remove <path>
+git worktree remove ../worktree-name
 
 # Prune stale worktree references
 git worktree prune
 ```
 
-### Sync Operations
+### Common Validations
 
 ```bash
-# Sync from main repo (run from tokenAssets/)
+# Format check
+yarn format:check
+
+# API validation
+yarn --cwd _config/nodeAPI lint
+yarn --cwd _config/nodeAPI build
+
+# Image tools validation
+cd app/image-tools && bun build && cd ../..
+
+# Local API testing
+yarn --cwd _config/nodeAPI dev
+```
+
+### Branch Management
+
+```bash
+# Sync with upstream
 git fetch --all --prune
 
-# Update worktree (run from worktree)
+# Fast-forward pull
 git pull --ff-only
 
-# Push changes
-git push origin <branch-name>
+# Check branch status
+git status
+git branch -v
+
+# View commit history
+git log --oneline --graph
 ```
-
-### Validation Commands
-
-```bash
-# Root level
-yarn format:check
-yarn format  # to fix
-
-# Image tools
-cd app/image-tools
-bun run lint
-bun run build
-bun run preview
-
-# Node API
-cd _config/nodeAPI
-yarn build
-yarn lint
-```
-
-## Troubleshooting
-
-### Worktree Issues
-
-- **Branch already checked out**: Use `git worktree list` to find where
-- **Stale worktree references**: Run `git worktree prune`
-- **Permission issues**: Ensure proper file permissions in worktree directories
-
-### Sync Issues
-
-- **Merge conflicts**: Use `git pull --rebase` if fast-forward fails
-- **Outdated references**: Run `git fetch --all --prune` from main repo
-- **Branch not found**: Ensure branch exists on origin with `git branch -r`
-
-### Validation Failures
-
-- **Lint errors**: Run `bun run lint --fix` or `yarn format`
-- **Build failures**: Check for TypeScript errors or missing dependencies
-- **Test failures**: Review test output and fix failing tests before commit
