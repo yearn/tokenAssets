@@ -1,13 +1,16 @@
 # Shared Utilities Alignment
 
 ## Goal
+
 Centralise reusable helpers (EVM utilities, API base URL logic) to minimise duplication and ensure consistent behaviour across client and server.
 
 ## Prerequisites
-- [x] Review `src/lib/api.ts`, `src/lib/chains.ts`, `api/erc20-name.ts`, and any new shared modules created in related tasks.
-- [x] Confirm project structure for shared code (e.g., `src/shared` or root-level `shared/`).
+
+- [ ] Review `src/lib/api.ts`, `src/lib/chains.ts`, `api/erc20-name.ts`, and any new shared modules created in related tasks.
+- [ ] Confirm project structure for shared code (e.g., `src/shared` or root-level `shared/`).
 
 ## Implementation Checklist
+
 1. [x] Decide on a shared directory accessible to both client and edge runtime (avoid Node-only APIs).
 2. [x] Move address validation, ABI decoding, and RPC helpers into the shared module; update imports throughout the project.
 3. [x] Revisit `API_BASE_URL` fallback logic to default to `'/'` or an injected origin; remove hardcoded `'http://localhost'`.
@@ -16,6 +19,7 @@ Centralise reusable helpers (EVM utilities, API base URL logic) to minimise dupl
 6. [x] Ensure shared code remains tree-shakeable and does not pull heavy dependencies into the client bundle.
 
 ### Agent Context
+
 - Wave 1 task; start immediately on the `project-hardening` integration branch before API/frontend refactors.
 - Export helpers with the following signatures so downstream tasks can rely on them:
   - `isEvmAddress(address: string): boolean`
@@ -25,12 +29,14 @@ Centralise reusable helpers (EVM utilities, API base URL logic) to minimise dupl
 - Place modules under `src/shared/` and ensure both browser and Edge runtimes can import them (no Node-only APIs).
 
 ## Validation Checklist
+
 - [x] `bun typecheck`
 - [x] `bun build`
 - [x] `bun test` (if unit tests implemented)
 - [ ] Spot-check bundle (e.g., `bun build` output or Vite stats) to confirm no unexpected size regressions.
 
 ## Completion Criteria
+
 - All duplicated helper logic is consolidated in shared modules with tests.
 - API base URL logic works correctly in both browser and edge contexts.
 - Documentation reflects new helper locations and usage patterns.
