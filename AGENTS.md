@@ -55,3 +55,44 @@ There are multiple different apps and elements in this repo. Please read careful
 - Optimize SVGs (keep simple; large/complex SVGs hinder performance).
 - Ensure PNGs are exactly 32×32 and 128×128.
 - Do not commit secrets or binaries outside `tokens/` and `_config/` build outputs.
+
+## Branching Guidance
+
+Default to one shared integration branch per wave (e.g., `wave-1/shared-utilities`) so agents working the same wave commit directly together and stay aligned on helper contracts. Only spin up individual branches for isolated or risky spikes; otherwise per-agent branches cause avoidable rebases and drift.
+
+## Worktree-Based Collaboration Workflow
+
+### Roles
+- **Coordinating/Planning Agent** – sets up integration branches, allocates tasks, and keeps the tracker up to date.
+- **Task Agents** – implement scoped changes inside their assigned worktrees, run validations, and update task docs.
+- **Review Agent(s)** – perform focused reviews from a clean worktree, verify validations, and gate merges.
+
+### Coordinator Setup
+1. Pick/prepare the integration branch (e.g., `wave-1/shared-utilities`) and push it upstream.
+2. Create named worktrees for each active branch:
+   - `git worktree add ../wave1 task/shared-utilities-alignment`
+   - `git worktree add ../wave1-devex task/developer-experience-upgrades`
+   - Keep a root worktree on `main` for syncing upstream or emergency fixes.
+3. Record worktree paths plus assigned agents in `docs/tasks/improvement-review-tracker.md` so everyone knows where to work.
+4. Before assignments, run `git fetch --all --prune` from the main repo to keep every worktree in sync.
+
+### Task Agent Flow
+1. `cd` into the assigned worktree (e.g., `../wave1`).
+2. Pull latest changes with `git pull --ff-only` to stay aligned with other agents on the same branch.
+3. Implement the task, keeping scope limited to the brief; update relevant docs/checklists there.
+4. Run required validations (typecheck, build, tests) from the same directory.
+5. Commit with a conventional message (e.g., `chore: align shared utilities`).
+6. Push upstream and note completion in the task document and tracker.
+
+### Review Agent Flow
+1. Create a dedicated review worktree: `git worktree add ../wave1-review task/shared-utilities-alignment`.
+2. Pull latest, run the validation suite, and review diffs (`git diff origin/main...HEAD`).
+3. Leave review notes in the task doc or PR, tagging follow-ups for task agents.
+4. Once approved, coordinate with the maintainer to merge the shared branch into the integration branch (or directly into `improvement-review-implementation`, per plan).
+5. Remove stale review worktrees with `git worktree remove ../wave1-review` after merge.
+
+### General Tips
+- Each worktree can only have one branch checked out; name folders clearly (`../waveX`, `../waveX-review`, etc.).
+- Always fetch/prune from the main repo directory (`tokenAssets/`) so every worktree sees updated refs.
+- Use `git worktree list` to audit active worktrees; remove unused ones to avoid stale state.
+- Share scripts/configs via the repo (not per-worktree) so validation commands behave consistently.
