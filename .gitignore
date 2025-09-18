@@ -1,5 +1,4 @@
-# Ignore scripts folder
-scripts/
+
 .DS_Store
 node_modules
 .vscode
