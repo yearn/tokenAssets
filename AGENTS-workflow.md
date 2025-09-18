@@ -1,22 +1,46 @@
 # Agent Workflow Documentation
 
+The full documentation for OpenAI's Codex coding agents can be found at `/home/ross/code/codex/docs`
+
 ## Worktree-Based Collaboration Workflow
 
 ### Roles
 
-- **Coordinating/Planning Agent** – sets up integration branches, allocates tasks, and keeps the tracker up to date.
+- **Coordinating/Planning Agent** – runs the Codex MCP server, spins up task/review agents, sets up integration branches, and keeps the tracker up to date.
 - **Task Agents** – implement scoped changes inside their assigned worktrees, run validations, and update task docs.
 - **Review Agent(s)** – perform focused reviews from a clean worktree, verify validations, and gate merges.
 
 ### Coordinator Setup
 
-1. Pick/prepare the integration branch (e.g., `wave-1/shared-utilities`) and push it upstream.
-2. Create named worktrees for each active branch:
+1. Launch a Codex MCP server session the coordinator can call (`codex mcp --sandbox workspace-write --approval-policy on-request`). Confirm the `codex` and `codex-reply` tools are listed (e.g., via the MCP Inspector) so new agents can be spawned on demand.
+2. Pick/prepare the integration branch (e.g., `wave-1/shared-utilities`) and push it upstream.
+3. Create named worktrees for each active branch:
     - `git worktree add ../wave1-shared-utils task/shared-utilities-alignment`
     - `git worktree add ../wave1-devex task/developer-experience-upgrades`
     - Keep the main worktree in `main/` for syncing upstream or emergency fixes.
-3. Record worktree paths plus assigned agents in `docs/tasks/improvement-review-tracker.md` so everyone knows where to work.
-4. Before assignments, run `git fetch --all --prune` from the main repo to keep every worktree in sync.
+4. For each agent you need, call the MCP `codex` tool with a task-specific prompt and configuration (see “Starting Task Agents via MCP”) to create new Codex agent sessions. Record the returned `conversationId` in the assignments tracker so you can resume or follow up.
+5. Record worktree paths, assigned agents, and their MCP `conversationId` in `docs/tasks/improvement-review-tracker.md` so everyone knows where to work.
+6. Before assignments, run `git fetch --all --prune` from the main repo to keep every worktree in sync.
+
+### Starting Task Agents via MCP
+
+The coordinating agent creates task-specific Codex sessions by calling the MCP `codex` tool. Provide a focused prompt, matching sandbox settings, and the worktree path you prepared above.
+
+```bash
+# Example: spawn a task agent for the shared utilities worktree
+codex mcp call codex <<'JSON'
+{
+  "prompt": "You are the Task Agent responsible for the shared utilities alignment effort. Work exclusively inside /home/ross/code/yearn/tokenAssets-project/wave1-shared-utils, follow the task brief in docs/tasks/improvement-review-tracker.md, and report progress back to the coordinator.",
+  "sandbox": "workspace-write",
+  "approval-policy": "on-request",
+  "cwd": "/home/ross/code/yearn/tokenAssets-project/wave1-shared-utils",
+  "include-plan-tool": true
+}
+JSON
+```
+
+- The MCP server response includes a `conversationId`; store it in the tracker next to the agent and worktree assignment so you can resume via the `codex-reply` tool.
+- To follow up with an existing agent session, call `codex mcp call codex-reply` with the stored `conversationId` and your new prompt (e.g., status checks, escalations, or clarifications).
 
 ### Task Agent Flow
 
