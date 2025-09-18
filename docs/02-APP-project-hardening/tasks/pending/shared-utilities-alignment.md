@@ -56,6 +56,8 @@ Centralise reusable helpers (EVM utilities, API base URL logic) to minimise dupl
 - Added vitest with focused suites for EVM and API helpers; run via `bun run test` (maps to `vitest run`).
 - Shared helpers are exposed through the `@shared/*` alias (configured in Vite + TS) so API routes import without brittle relative paths.
 
+---
+
 ## Claude Technical Review: Shared Utilities Alignment
 
 I've analyzed the changes committed in the `task/shared-utilities-alignment` branch. Here's my comprehensive technical review:
