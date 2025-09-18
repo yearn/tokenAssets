@@ -238,10 +238,10 @@ while IFS= read -r -d '' doc; do
   }
   printf '%s\n' "$output"
   created_worktrees+=("$worktree_path -> $branch")
-done < <(find "$repo_root/app/image-tools/docs/project-hardening/tasks/active" -mindepth 2 -maxdepth 2 -name '*.md' -print0 | sort -z)
+done < <(find "$repo_root/docs/02-APP-project-hardening/tasks/active" -mindepth 2 -maxdepth 2 -name '*.md' -print0 | sort -z)
 
 if [[ ${#active_task_docs[@]} -eq 0 ]]; then
-  warn "No active task documents found under docs/project-hardening/tasks/active."
+  warn "No active task documents found under docs/02-APP-project-hardening/tasks/active."
 fi
 
 if $start_server; then
@@ -276,7 +276,7 @@ else
   log "No new task worktrees were created (existing worktrees reused or skipped)."
 fi
 
-log "Review tracker: app/image-tools/docs/project-hardening/review-tracker.md"
+log "Review tracker: docs/02-APP-project-hardening/review-tracker.md"
 log "Next steps:"
 printf '  1. Update the review tracker with assigned agents and conversation IDs.\n'
 printf '  2. For each worktree, run needed validations before coding.\n'

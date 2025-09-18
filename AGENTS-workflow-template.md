@@ -1,4 +1,4 @@
-# Agent Workflow (tokenAssets)
+# Agent Workflow Template
 
 The full documentation for OpenAI's Codex coding agents can be found at <codex-docs-path> (update with your local reference).
 
@@ -12,26 +12,19 @@ The full documentation for OpenAI's Codex coding agents can be found at <codex-d
 
 ### Placeholder Guide
 
-| Placeholder | TokenAssets value | Description |
-| --- | --- | --- |
-| `<repo-root>` | `./main` | Repo directory that contains the `.git` folder |
-| `<primary-worktree>` | `main/` | Default worktree used for day-to-day development |
-| `<integration-branch>` | `chore/project-hardening` | Branch that aggregates the current wave of work |
-| `<coordinator-worktree>` | `../coordinator-chore-project-hardening` | Worktree dedicated to coordination duties |
-| `<task-branch>` | `task/<slug>` | Branch dedicated to a specific task |
-| `<task-worktree>` | `../task-<slug>` | Worktree assigned to an individual task agent |
-| `<review-worktree>` | `../review-<slug>` | Clean worktree used by a review agent |
-| `<task-tracker-path>` | `docs/02-APP-project-hardening/review-tracker.md` | Tracker that records assignments and status |
-| `<sandbox-mode>` | `workspace-write` | MCP sandbox mode for Codex sessions |
-| `<approval-policy>` | `on-request` | Approval policy for Codex sessions |
-| `<validation-commands>` | See `package.json` scripts | Project validation commands (lint, test, build) |
-
-
-> **Template reference:** For a generalized process, use `AGENTS-workflow-template.md`. This file captures the tokenAssets-specific defaults.
-
-> **Repo layout note:** The actual Git repository lives in the `main/` subdirectory (`<repo-root>` = `./main`). The parent `tokenAssets/` folder only groups worktrees, so run git-oriented commands from `main/` or the sibling worktrees the scripts create.
-
-> **Branch naming note:** `main` stays as the default branch, shared integration work runs on `chore/project-hardening`, and each task agent works on a `task/<slug>` branch (for example, `task/upload-api-hardening`). The shared CLI (“shell” folder) sits one level above `main/`, so coordinator commands target the integration branch by setting `cwd` to `main/` or the dedicated `coordinator-chore-project-hardening/` worktree.
+| Placeholder | Description |
+| --- | --- |
+| `<repo-root>` | Absolute path to the repository root that hosts the `main` worktree |
+| `<primary-worktree>` | Directory that tracks the default branch (commonly `main/`) |
+| `<integration-branch>` | Branch that coordinates a wave of tasks |
+| `<coordinator-worktree>` | Worktree path dedicated to coordination duties |
+| `<task-branch>` | Branch dedicated to a specific task |
+| `<task-worktree>` | Worktree path assigned to an individual task agent |
+| `<review-worktree>` | Worktree path used by a review agent |
+| `<task-tracker-path>` | Documentation file that records assignments and status |
+| `<sandbox-mode>` | MCP sandbox mode (e.g., `workspace-write`) |
+| `<approval-policy>` | MCP approval policy (e.g., `on-request`) |
+| `<validation-commands>` | Placeholder for the project's validation scripts or commands |
 
 ### Coordinator Setup
 

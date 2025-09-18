@@ -19,7 +19,7 @@ This document outlines a minimal, efficient implementation to add a small web UI
   - Addresses lowercase for EVM; case-sensitive for Solana (`1151111081099710`).
 - Reuse `scripts/ingestTokens.js` and `scripts/token-images-to-ingest/` for ingestion.
 - Frontend is a Vite + TypeScript + TanStack app (generated like `../app-generator/create-app.js`), living under `app/`.
-- Server endpoints live in a standalone Node server (Express) under `app/image-tools/server` so `_config/nodeAPI` remains a standalone, unchanged piece of the repo.
+- Server endpoints live in a standalone API implementation under `app/api` so `_config/nodeAPI` remains a standalone, unchanged piece of the repo.
 - Use environment variables for credentials; do not commit secrets.
 
 ## Architecture Overview
@@ -62,22 +62,23 @@ This document outlines a minimal, efficient implementation to add a small web UI
 
 ## Files To Add
 
-- Vite app (frontend) under `app/image-tools/`:
-  - `app/image-tools/index.html`.
-  - `app/image-tools/vite.config.ts`.
-  - `app/image-tools/tsconfig.json`.
-  - `app/image-tools/src/main.tsx`.
-  - `app/image-tools/src/router.tsx` (TanStack Router config).
-  - `app/image-tools/src/routes/upload.tsx` (upload form + drag‑and‑drop UI with signed‑in gating).
-  - `app/image-tools/src/routes/auth/github-success.tsx` (stores token then routes back to `/upload`).
-  - `app/image-tools/src/components/GithubSignIn.tsx` (OAuth trigger + signed‑in state).
-  - `app/image-tools/src/lib/api.ts` (API base URL, fetch helpers; TanStack Query clients).
-  - `app/image-tools/src/lib/githubAuth.ts` (client helper to build OAuth URL with `VITE_GITHUB_CLIENT_ID`).
+- Vite app (frontend) under `app/`:
+  - `app/index.html`.
+  - `app/vite.config.ts`.
+  - `app/tsconfig.json`.
+  - `app/src/main.tsx`.
+  - `app/src/router.tsx` (TanStack Router config).
+  - `app/src/routes/upload.tsx` (upload form + drag-and-drop UI with signed-in gating).
+  - `app/src/routes/auth/github-success.tsx` (stores token then routes back to `/upload`).
+  - `app/src/components/GithubSignIn.tsx` (OAuth trigger + signed-in state).
+  - `app/src/lib/api.ts` (API base URL, fetch helpers; TanStack Query clients).
+  - `app/src/lib/githubAuth.ts` (client helper to build OAuth URL with `VITE_GITHUB_CLIENT_ID`).
 
-- Standalone API server under `app/image-tools/server/`:
-  - `app/image-tools/server/index.ts` (Express app; serves `/api/auth/github/callback` and `/api/upload`).
-  - `app/image-tools/server/github.ts` (helpers for GitHub OAuth + PR creation).
-  - `app/image-tools/server/ingest.ts` (helpers to validate files, write staging, and copy/rename to `tokens/` or `chains/`).
+- API routes under `app/api/`:
+  - `app/api/auth/github/callback.ts` handles `/api/auth/github/callback`.
+  - `app/api/github.ts` provides GitHub helper endpoints.
+  - `app/api/upload.ts` implements the upload + staging flow.
+  - `app/api/erc20-name.ts` handles ERC-20 lookups.
 
 ## Data Flow
 
@@ -163,8 +164,8 @@ This document outlines a minimal, efficient implementation to add a small web UI
 ## Validation & Testing
 
 - Local dev:
-  - Start API server (Node): `yarn --cwd app/image-tools dev:server` (serves OAuth callback and upload API on port 5174 by default).
-  - Start frontend (Vite): `yarn --cwd app/image-tools dev` (serves the UI on port 5173 by default).
+- Start API server (Node): `yarn --cwd app dev:server` (serves OAuth callback and upload API on port 5174 by default).
+- Start frontend (Vite): `yarn --cwd app dev` (serves the UI on port 5173 by default).
   - Open `http://localhost:5173/upload` and submit a sample.
   - Verify asset endpoint URLs locally: `/api/token/<chainId>/<address>/logo-32.png`.
   - Run `yarn format:check` to ensure repo formatting.
@@ -203,7 +204,7 @@ This document outlines a minimal, efficient implementation to add a small web UI
 
 ## Rollout Plan
 
-1. Scaffold Vite + TS + TanStack app under `app/image-tools` (per `../app-generator/create-app.js` conventions).
+1. Scaffold Vite + TS + TanStack app under `app` (per `../app-generator/create-app.js` conventions).
 2. Implement GitHub OAuth callback in the standalone server (`/api/auth/github/callback`) and success route in the Vite app; add sign‑in button.
 3. Implement `/upload` route in the Vite app and `/api/upload` in the standalone server using the user token and GitHub Git Data API for PRs.
 4. Add chain ingestion (inline or separate script) to support `chains/<chainId>/`.

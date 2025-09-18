@@ -4,14 +4,14 @@
 
 - Assets: `tokens/<chainId>/<address>/` with `logo.svg`, `logo-32.png`, `logo-128.png`.
 - Chains: `chains/<chainId>/` (numeric `chainId`).
-- Image Upload App: `app/image-tools/`.
+- Image Upload App: `app/`.
 - Automation: `scripts/` (e.g., `ingestTokens.js`; inputs in `scripts/token-images-to-ingest/`).
 - Root configs: `.editorconfig`, `.prettierrc`, `package.json`.
 
 ## Build, Test, and Development Commands
 
-- SPA dev: `bun dev` in `app/image-tools` (Vite on `http://localhost:5173`).
-- Vercel dev: `vercel dev` in `app/image-tools` (serves API under `/api/*`).
+- SPA dev: `bun dev` in `app` (Vite on `http://localhost:5173`).
+- Vercel dev: `vercel dev` in `app` (serves API under `/api/*`).
 - Build/preview: `bun build` then `bun preview`.
 - Ingest assets: `node scripts/ingestTokens.js ./scripts/tokensToInjest.json` — copies prepared images into `tokens/`.
 
