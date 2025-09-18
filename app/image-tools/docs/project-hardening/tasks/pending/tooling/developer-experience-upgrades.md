@@ -16,7 +16,7 @@ Strengthen linting, testing, and documentation so contributors can ship changes 
 6. [ ] Consider adding a pre-commit hook template (e.g., Husky or lint-staged) while keeping dependency footprint minimal.
 
 ### Agent Context
-- Wave 1 task; work from `improvement-review-implementation` parallel to shared utilities.
+- Wave 1 task; work from the `project-hardening` integration branch parallel to shared utilities.
 - Ensure ESLint/ Vitest configs include `src/shared/**/*` patterns created by the utilities task.
 - Provide command aliases for both Bun and npm (`npm run lint`, `npm run test`) so later agents can rely on consistent tooling.
 - Coordinate with other agents before adding opinionated lint rules that could block in-progress work; document any new required fixes.
@@ -36,7 +36,7 @@ Strengthen linting, testing, and documentation so contributors can ship changes 
 
 ## Contributor Notes
 
-- [ ] To fully complete the task you must make a commit to github branch `improvement-review-implementation`.
+- [ ] To fully complete the task you must make a commit to github branch `project-hardening`.
 
 ### Please leave any additional information that may be useful for future contributors below
 

@@ -1,106 +1,156 @@
-# Agent Workflow Documentation
+# Agent Workflow Template
 
-The full documentation for OpenAI's Codex coding agents can be found at `/home/ross/code/codex/docs`
+The full documentation for OpenAI's Codex coding agents can be found at <codex-docs-path> (update with your local reference).
 
 ## Worktree-Based Collaboration Workflow
 
 ### Roles
 
-- **Coordinating/Planning Agent** – runs the Codex MCP server, spins up task/review agents, sets up integration branches, and keeps the tracker up to date.
-- **Task Agents** – implement scoped changes inside their assigned worktrees, run validations, and update task docs.
+- **Coordinating/Planning Agent** – runs the Codex MCP server, provisions task/review agents, manages integration branches, and keeps planning docs in sync.
+- **Task Agents** – implement scoped changes inside their assigned worktrees, run the necessary validations, and update task documentation.
 - **Review Agent(s)** – perform focused reviews from a clean worktree, verify validations, and gate merges.
+
+### Placeholder Guide
+
+| Placeholder | Description |
+| --- | --- |
+| `<repo-root>` | Absolute path to the repository root that hosts the `main` worktree |
+| `<primary-worktree>` | Directory that tracks the default branch (commonly `main/`) |
+| `<integration-branch>` | Branch that coordinates a wave of tasks |
+| `<coordinator-worktree>` | Worktree path dedicated to coordination duties |
+| `<task-branch>` | Branch dedicated to a specific task |
+| `<task-worktree>` | Worktree path assigned to an individual task agent |
+| `<review-worktree>` | Worktree path used by a review agent |
+| `<task-tracker-path>` | Documentation file that records assignments and status |
+| `<sandbox-mode>` | MCP sandbox mode (e.g., `workspace-write`) |
+| `<approval-policy>` | MCP approval policy (e.g., `on-request`) |
+| `<validation-commands>` | Placeholder for the project's validation scripts or commands |
 
 ### Coordinator Setup
 
-1. Launch a Codex MCP server session the coordinator can call (`codex mcp --sandbox workspace-write --approval-policy on-request`). Confirm the `codex` and `codex-reply` tools are listed (e.g., via the MCP Inspector) so new agents can be spawned on demand.
-2. Pick/prepare the integration branch (e.g., `wave-1/shared-utilities`) and push it upstream.
-3. Create named worktrees for each active branch:
-    - `git worktree add ../wave1-shared-utils task/shared-utilities-alignment`
-    - `git worktree add ../wave1-devex task/developer-experience-upgrades`
-    - Keep the main worktree in `main/` for syncing upstream or emergency fixes.
-4. For each agent you need, call the MCP `codex` tool with a task-specific prompt and configuration (see “Starting Task Agents via MCP”) to create new Codex agent sessions. Record the returned `conversationId` in the assignments tracker so you can resume or follow up.
-5. Record worktree paths, assigned agents, and their MCP `conversationId` in `docs/tasks/improvement-review-tracker.md` so everyone knows where to work.
-6. Before assignments, run `git fetch --all --prune` from the main repo to keep every worktree in sync.
+1. **Create and prepare the integration branch** for the current wave of tasks:
+
+    ```bash
+    cd <repo-root>/<primary-worktree>
+    git fetch --all --prune
+    git checkout -b <integration-branch>
+    git push -u origin <integration-branch>
+    ```
+
+2. **Create a dedicated coordinator worktree** on the integration branch to avoid conflicts with personal development work:
+
+    ```bash
+    git worktree add <coordinator-worktree> <integration-branch>
+    cd <coordinator-worktree>
+    ```
+
+3. Launch a Codex MCP server session the coordinator can call:
+
+    ```bash
+    codex mcp --sandbox <sandbox-mode> --approval-policy <approval-policy>
+    ```
+
+    Use the MCP Inspector (or your preferred client) to confirm that the `codex` and `codex-reply` tools are available so new agents can be spawned on demand.
+
+4. Create named worktrees for each task agent on their respective feature branches:
+
+    ```bash
+    git worktree add <task-worktree> <task-branch>
+    ```
+
+    Repeat for each task you plan to run in parallel. Keep the `<primary-worktree>` checked out on the default branch for syncing upstream or emergency fixes.
+
+5. Record worktree paths, assigned agents, and their MCP `conversationId` values in `<task-tracker-path>` so everyone knows where to work.
+
+6. Before assigning work, run `git fetch --all --prune` from `<primary-worktree>` to keep every worktree in sync with upstream.
 
 ### Starting Task Agents via MCP
 
 The coordinating agent creates task-specific Codex sessions by calling the MCP `codex` tool. Provide a focused prompt, matching sandbox settings, and the worktree path you prepared above.
 
 ```bash
-# Example: spawn a task agent for the shared utilities worktree
 codex mcp call codex <<'JSON'
 {
-  "prompt": "You are the Task Agent responsible for the shared utilities alignment effort. Work exclusively inside /home/ross/code/yearn/tokenAssets-project/wave1-shared-utils, follow the task brief in docs/tasks/improvement-review-tracker.md, and report progress back to the coordinator.",
-  "sandbox": "workspace-write",
-  "approval-policy": "on-request",
-  "cwd": "/home/ross/code/yearn/tokenAssets-project/wave1-shared-utils",
+  "prompt": "You are the Task Agent responsible for <task-summary>. Work exclusively inside <task-worktree>, follow the task brief in <task-tracker-path>, and report progress back to the coordinator.",
+  "sandbox": "<sandbox-mode>",
+  "approval-policy": "<approval-policy>",
+  "cwd": "<task-worktree>",
   "include-plan-tool": true
 }
 JSON
 ```
 
-- The MCP server response includes a `conversationId`; store it in the tracker next to the agent and worktree assignment so you can resume via the `codex-reply` tool.
+- The MCP server response includes a `conversationId`; store it in `<task-tracker-path>` next to the agent and worktree assignment so you can resume the conversation via the `codex-reply` tool.
 - To follow up with an existing agent session, call `codex mcp call codex-reply` with the stored `conversationId` and your new prompt (e.g., status checks, escalations, or clarifications).
 
 ### Task Agent Flow
 
-1. `cd` into the assigned worktree (e.g., `../wave1-shared-utils`).
-2. Pull latest changes with `git pull --ff-only` to stay aligned with other agents on the same branch.
-3. Implement the task, keeping scope limited to the brief; update relevant docs/checklists there.
-4. Run required validations (typecheck, build, tests) from the same directory.
-5. Commit with a conventional message (e.g., `chore: align shared utilities`).
-6. Push upstream and note completion in the task document and tracker.
+1. `cd` into the assigned `<task-worktree>`.
+2. Pull the latest changes with `git pull --ff-only` to stay aligned with other agents working on the same branch.
+3. Review the brief and related documentation referenced in `<task-tracker-path>`.
+4. Implement the task, keeping scope limited to the brief; update relevant docs/checklists.
+5. Run the validations required for the task (formatting, linting, unit/integration tests, builds). Replace `<validation-commands>` with your project's scripts.
+6. Commit with a conventional message appropriate for the task.
+7. Push upstream and document completion in `<task-tracker-path>`.
 
 ### Review Agent Flow
 
-1. Create a dedicated review worktree: `git worktree add ../review-wave1-shared-utils task/shared-utilities-alignment`.
-2. Pull latest, run the validation suite, and review diffs (`git diff origin/main...HEAD`).
-3. Leave review notes in the task doc or PR, tagging follow-ups for task agents.
-4. Once approved, coordinate with the maintainer to merge the shared branch into the integration branch (or directly into `improvement-review-implementation`, per plan).
-5. Remove stale review worktrees with `git worktree remove ../review-wave1-shared-utils` after merge.
+1. Create a dedicated review worktree on the branch being reviewed:
+
+    ```bash
+    git worktree add <review-worktree> <integration-branch-or-task-branch>
+    ```
+
+2. Pull the latest changes, run the validation suite, and review diffs (`git diff origin/<base-branch>...HEAD`).
+3. Leave review notes in the task document, PR, or tracker, tagging follow-ups for task agents as needed.
+4. Once approved, coordinate with the maintainer to merge the reviewed branch into `<integration-branch>` (or directly into the target branch, per plan).
+5. Remove stale review worktrees with `git worktree remove <review-worktree>` after merge.
 
 ### General Tips
 
-- Each worktree can only have one branch checked out; name folders clearly (`../wave1-shared-utils`, `../review-wave1-shared-utils`, etc.).
-- Always fetch/prune from the main repo directory (`tokenAssets-project/main/`) so every worktree sees updated refs.
-- Use `git worktree list` to audit active worktrees; remove unused ones to avoid stale state.
-- Share scripts/configs via the repo (not per-worktree) so validation commands behave consistently.
+- Each worktree can only have one branch checked out; name folders clearly to make coordination easier.
+- Always fetch/prune from `<primary-worktree>` so every worktree sees updated refs.
+- Use `git worktree list` to audit active worktrees and remove unused ones to avoid stale state.
+- Share scripts/configuration via the repository (not per-worktree) so validation commands behave consistently for all agents.
 
 ## Detailed Step-by-Step Agent Workflows
+
+The sections below provide command-oriented references. Replace placeholders with your project-specific values before running the commands.
 
 ### Coordinating/Planning Agent Workflow
 
 #### Initial Setup Phase
 
 ```bash
-# 1. Navigate to main repo
-cd /home/ross/code/yearn/tokenAssets-project/main
+# 1. Navigate to the primary worktree
+cd <repo-root>/<primary-worktree>
 
 # 2. Ensure clean state and latest upstream
 git fetch --all --prune
-git checkout main
+git checkout <default-branch>
 git pull --ff-only
 
-# 3. Create integration branch for the wave
-git checkout -b wave-1/shared-utilities
-git push -u origin wave-1/shared-utilities
+# 3. Create or update the integration branch
+git checkout -b <integration-branch>  # omit -b if branch already exists
+git push -u origin <integration-branch>
 
-# 4. Create worktrees for task agents
-git worktree add ../wave1-shared-utils wave-1/shared-utilities
-git worktree add ../wave1-devex task/developer-experience-upgrades
+# 4. Create coordinator worktree on integration branch
+git worktree add <coordinator-worktree> <integration-branch>
+cd <coordinator-worktree>
 
-# 5. Create task tracker document
-mkdir -p docs/tasks
-touch docs/tasks/improvement-review-tracker.md
+# 5. Create task worktrees
+git worktree add <task-worktree-A> <task-branch-A>
+git worktree add <task-worktree-B> <task-branch-B>
 
-# 6. Record worktree assignments in tracker
-echo "# Wave 1 Task Assignments" >> docs/tasks/improvement-review-tracker.md
-echo "- Agent A: ../wave1-shared-utils (wave-1/shared-utilities)" >> docs/tasks/improvement-review-tracker.md
-echo "- Agent B: ../wave1-devex (task/developer-experience-upgrades)" >> docs/tasks/improvement-review-tracker.md
+# 6. Create or update the task tracker
+touch <task-tracker-path>
 
-# 7. Commit and push tracker
-git add docs/tasks/improvement-review-tracker.md
-git commit -m "chore: initialize wave 1 task assignments"
+# 7. Record worktree assignments in the tracker
+# e.g., echo "- Coordinator: <coordinator-worktree> (<integration-branch>)" >> <task-tracker-path>
+
+# 8. Commit and push tracker updates as needed
+git add <task-tracker-path>
+git commit -m "chore: update task assignments"
 git push
 ```
 
@@ -113,12 +163,12 @@ git worktree list
 # Sync all worktrees with upstream
 git fetch --all --prune
 
-# Check task completion status
+# Review task completion status
 git log --oneline --graph --all
 
-# Update task assignments as needed
-vim docs/tasks/improvement-review-tracker.md
-git add docs/tasks/improvement-review-tracker.md
+# Update task assignments
+$EDITOR <task-tracker-path>
+git add <task-tracker-path>
 git commit -m "chore: update task assignments"
 git push
 ```
@@ -129,7 +179,7 @@ git push
 
 ```bash
 # 1. Navigate to assigned worktree
-cd /home/ross/code/yearn/tokenAssets-project/wave1-shared-utils
+cd <task-worktree>
 
 # 2. Ensure latest state
 git fetch --all --prune
@@ -139,34 +189,24 @@ git pull --ff-only
 git status
 git branch -v
 
-# 4. Review task assignment
-cat docs/tasks/improvement-review-tracker.md
+# 4. Review task documentation
+cat <task-tracker-path>
 ```
 
 #### Implementation Phase
 
 ```bash
-# 1. Make changes according to task brief
-# (Edit files as needed)
+# 1. Implement changes according to the task brief
+# (Edit the relevant files)
 
-# 2. Run validations from worktree directory
-yarn format:check
-yarn --cwd _config/nodeAPI lint
-yarn --cwd _config/nodeAPI build
+# 2. Run project validations
+<validation-commands>
 
-# For image-tools changes (if applicable):
-cd app/image-tools
-bun build
-cd ../..
-
-# 3. Test locally
-yarn --cwd _config/nodeAPI dev &
-# Test endpoints manually
-curl http://localhost:3000/api/token/1/0x...
-kill %1  # Stop dev server
+# 3. Optionally run local smoke tests or start dev servers as required by the task
+<optional-local-test-commands>
 
 # 4. Stage and review changes
-git add .
+git add <paths>
 git diff --staged
 ```
 
@@ -174,19 +214,19 @@ git diff --staged
 
 ```bash
 # 1. Commit with conventional message
-git commit -m "chore: align shared utilities with new standards"
+git commit -m "<type>: <concise summary>"
 
 # 2. Push to upstream
 git push
 
-# 3. Update task tracker
-echo "- [x] Shared utilities alignment completed" >> docs/tasks/improvement-review-tracker.md
-git add docs/tasks/improvement-review-tracker.md
-git commit -m "chore: mark shared utilities task complete"
+# 3. Update task tracker (checklist, notes, links)
+# e.g., echo "- [x] <task-name> completed" >> <task-tracker-path>
+
+git add <task-tracker-path>
+git commit -m "chore: update task tracker"
 git push
 
-# 4. Notify coordinator
-echo "Task completed in $(pwd), ready for review"
+# 4. Notify the coordinator via MCP or your team channel
 ```
 
 ### Review Agent Workflow
@@ -194,15 +234,15 @@ echo "Task completed in $(pwd), ready for review"
 #### Setup Review Environment
 
 ```bash
-# 1. Navigate to main repo
-cd /home/ross/code/yearn/tokenAssets-project/main
+# 1. Navigate to the primary worktree
+cd <repo-root>/<primary-worktree>
 
 # 2. Create fresh review worktree
 git fetch --all --prune
-git worktree add ../review-wave1-shared-utils wave-1/shared-utilities
+git worktree add <review-worktree> <branch-under-review>
 
 # 3. Navigate to review environment
-cd ../review-wave1-shared-utils
+cd <review-worktree>
 
 # 4. Ensure latest state
 git pull --ff-only
@@ -211,62 +251,47 @@ git pull --ff-only
 #### Review Process
 
 ```bash
-# 1. Run full validation suite
-yarn format:check
-yarn --cwd _config/nodeAPI lint
-yarn --cwd _config/nodeAPI build
-
-# For image-tools validation:
-cd app/image-tools
-bun build
-vercel dev &
-# Test upload functionality
-curl -X POST http://localhost:3000/api/erc20-name -d '{"address":"0x...", "chainId":1}'
-kill %1
-cd ../..
+# 1. Run the validation suite required for the branch
+<validation-commands>
 
 # 2. Review code changes
-git diff origin/main...HEAD
-git log --oneline origin/main..HEAD
+git diff origin/<base-branch>...HEAD
+git log --oneline origin/<base-branch>..HEAD
 
 # 3. Check for conflicts or issues
-git merge-base origin/main HEAD
-git diff --name-only origin/main...HEAD
+git merge-base origin/<base-branch> HEAD
+git diff --name-only origin/<base-branch>...HEAD
 
-# 4. Verify asset structure (if applicable)
-find tokens/ -name "logo*.png" | head -10
-find tokens/ -name "logo.svg" | head -10
+# 4. Perform any domain-specific file checks (update commands as needed)
+<domain-specific-checks>
 ```
 
 #### Approval & Cleanup
 
 ```bash
-# 1. Document review results
-echo "## Review Results - Wave 1 Shared Utils" >> docs/tasks/improvement-review-tracker.md
-echo "- ✅ Code quality: PASS" >> docs/tasks/improvement-review-tracker.md
-echo "- ✅ Validation suite: PASS" >> docs/tasks/improvement-review-tracker.md
-echo "- ✅ No conflicts with main: PASS" >> docs/tasks/improvement-review-tracker.md
+# 1. Document review results in the tracker or PR notes
+# e.g., echo "## Review Results - <branch-under-review>" >> <task-tracker-path>
 
-# 2. Approve for merge (if passed)
-git add docs/tasks/improvement-review-tracker.md
-git commit -m "chore: approve wave1 shared utilities for merge"
+# 2. Approve for merge when criteria are met
+git add <task-tracker-path>
+git commit -m "chore: document review results"
 git push
 
-# 3. Navigate back to main for merge coordination
-cd ../main
+# 3. Navigate back to primary worktree
+cd <repo-root>/<primary-worktree>
 
-# 4. Merge the reviewed branch
-git checkout main
+# 4. Merge the reviewed branch into the integration branch or target branch
+git checkout <integration-branch-or-target>
 git pull --ff-only
-git merge --no-ff wave-1/shared-utilities
+git merge --no-ff <branch-under-review>
 git push
 
 # 5. Clean up review worktree
-git worktree remove ../review-wave1-shared-utils
+git worktree remove <review-worktree>
 
-# 6. Optional: Clean up feature branch
-git branch -d wave-1/shared-utilities
-git push origin --delete wave-1/shared-utilities
+# 6. Optional: remove feature branch when no longer needed
+git branch -d <branch-under-review>
+git push origin --delete <branch-under-review>
 ```
 
 ## Quick Reference Commands
@@ -278,30 +303,25 @@ git push origin --delete wave-1/shared-utilities
 git worktree list
 
 # Add new worktree
-git worktree add ../worktree-name branch-name
+git worktree add <path> <branch>
 
 # Remove worktree
-git worktree remove ../worktree-name
+git worktree remove <path>
 
 # Prune stale worktree references
 git worktree prune
 ```
 
-### Common Validations
+### Validation Checklist
+
+Document the commands your project relies on for validation so every agent runs the same checks.
 
 ```bash
-# Format check
-yarn format:check
-
-# API validation
-yarn --cwd _config/nodeAPI lint
-yarn --cwd _config/nodeAPI build
-
-# Image tools validation
-cd app/image-tools && bun build && cd ../..
-
-# Local API testing
-yarn --cwd _config/nodeAPI dev
+# Example placeholders — replace with project-specific scripts
+<format-command>
+<lint-command>
+<test-command>
+<build-command>
 ```
 
 ### Branch Management

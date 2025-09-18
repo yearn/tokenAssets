@@ -22,7 +22,7 @@ Make `api/upload.ts` resilient by validating submissions deterministically, shar
 ### Agent Context
 
 - Wave 2 task; start once shared utilities expose `isEvmAddress`, `decodeAbiString`, and PNG helpers (`readPng`, `assertDimensions`).
-- Work off `improvement-review-implementation` and sync with the ERC-20 agent on shared module names/exports under `src/shared/`.
+- Work off the `project-hardening` integration branch and sync with the ERC-20 agent on shared module names/exports under `src/shared/`.
 - Define the expected request/response contract (error payload shape, success schema) and communicate changes to frontend agents.
 - If additional helper functions are created here, document them in the shared utilities README/comment for downstream reuse.
 
@@ -46,7 +46,7 @@ Make `api/upload.ts` resilient by validating submissions deterministically, shar
 
 ## Contributor Notes
 
-- [ ] To fully complete the task you must make a commit to github branch `improvement-review-implementation`.
+- [ ] To fully complete the task you must make a commit to github branch `project-hardening`.
 
 ### Please leave any additional information that may be useful for future contributors below
 

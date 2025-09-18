@@ -75,7 +75,7 @@ Default to one shared integration branch per wave (e.g., `wave-1/shared-utilitie
     - `git worktree add ../wave1 task/shared-utilities-alignment`
     - `git worktree add ../wave1-devex task/developer-experience-upgrades`
     - Keep a root worktree on `main` for syncing upstream or emergency fixes.
-3. Record worktree paths plus assigned agents in `docs/tasks/improvement-review-tracker.md` so everyone knows where to work.
+3. Record worktree paths plus assigned agents in `docs/project-hardening/review-tracker.md` so everyone knows where to work.
 4. Before assignments, run `git fetch --all --prune` from the main repo to keep every worktree in sync.
 
 ### Task Agent Flow

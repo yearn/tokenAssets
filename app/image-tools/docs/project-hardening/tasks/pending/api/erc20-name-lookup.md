@@ -21,7 +21,7 @@ Consolidate ABI decoding between client and server, add caching, and make RPC co
 
 ### Agent Context
 - Wave 2 task; begin after Wave 1 finishes exporting shared helpers (`isEvmAddress`, `decodeAbiString`, `getRpcUrl`).
-- Branch: `improvement-review-implementation`; pull latest shared modules before starting.
+- Branch: `project-hardening`; pull latest shared modules before starting.
 - Coordinate helper naming/paths with the API upload agent (`src/shared/evm`, `src/shared/rpc`).
 - Capture new API response schema (error body structure, cache hit metadata) so frontend agents can adjust accordingly.
 
@@ -44,7 +44,7 @@ Consolidate ABI decoding between client and server, add caching, and make RPC co
 
 ## Contributor Notes
 
-- [ ] To fully complete the task you must make a commit to github branch `improvement-review-implementation`.
+- [ ] To fully complete the task you must make a commit to github branch `project-hardening`.
 
 ### Please leave any additional information that may be useful for future contributors below
 

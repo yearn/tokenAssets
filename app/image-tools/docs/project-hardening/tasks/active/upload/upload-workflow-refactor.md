@@ -6,7 +6,7 @@ Re-architect the upload route so the form state, preview generation, and PR revi
 
 ## Prerequisites
 
-- [ ] Read `docs/improvement-review.md` and the existing implementation in `src/routes/upload.tsx`.
+- [ ] Read `docs/project-hardening/overview.md` and the existing implementation in `src/routes/upload.tsx`.
 - [ ] Confirm you can run dev tooling: `bun typecheck`, `bun build`, and `vercel dev` (optional for manual QA).
 
 ## Implementation Checklist
@@ -21,7 +21,7 @@ Re-architect the upload route so the form state, preview generation, and PR revi
 8. [ ] Delete or reduce the legacy logic from `src/routes/upload.tsx` after migration, keeping the file focused on route wiring.
 
 ### Agent Context
-- Wave 3 task; begin after Waves 1 & 2 merge into `improvement-review-implementation`.
+- Wave 3 task; begin after foundational and service-layer waves merge into the `project-hardening` integration branch.
 - Import shared helpers from `src/shared/evm` (`isEvmAddress`, `decodeAbiString`) and `src/shared/image` (`generatePngPreviews`, `assertDimensions`).
 - Expect `/api/upload` to return structured errors (`{ error: string, details?: string[] }`) and `/api/erc20-name` to surface cache metadata; update client handling accordingly.
 - Coordinate with the auth hardening agent if shared hooks/components (e.g., `useGithubAuth`) live in a common module to avoid divergent implementations.
@@ -43,7 +43,7 @@ Re-architect the upload route so the form state, preview generation, and PR revi
 
 ## Contributor Notes
 
-- [ ] To fully complete the task you must make a commit to github branch `improvement-review-implementation`.
+- [ ] To fully complete the task you must make a commit to github branch `project-hardening`.
 
 ### Please leave any additional information that may be useful for future contributors below
 

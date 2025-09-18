@@ -18,7 +18,7 @@ Improve GitHub OAuth UX and security by centralising auth state management, usin
 
 ### Agent Context
 - Wave 3 task; depends on Waves 1 & 2 for shared helper placement and API error structure.
-- Operate on `improvement-review-implementation` and reuse the shared `useGithubAuth` hook location chosen in this task (coordinate with upload refactor agent).
+- Operate on the `project-hardening` integration branch and reuse the shared `useGithubAuth` hook location chosen in this task (coordinate with upload refactor agent).
 - Expect GitHub profile fetches to route through a new client wrapper (`api/client/github.ts`) that may be shared with other components.
 - Document any UI messaging changes so other frontend areas can adopt consistent language.
 
@@ -39,7 +39,7 @@ Improve GitHub OAuth UX and security by centralising auth state management, usin
 
 ## Contributor Notes
 
-- [ ] To fully complete the task you must make a commit to github branch `improvement-review-implementation`.
+- [ ] To fully complete the task you must make a commit to github branch `project-hardening`.
 
 ### Please leave any additional information that may be useful for future contributors below
 

@@ -1,6 +1,6 @@
-# Image Tools Improvement Review
+# Project Hardening Overview
 
-_Last updated: 2025-09-17_
+_Last updated: 2025-09-18_
 
 ## Key Priorities
 
@@ -10,24 +10,24 @@ _Last updated: 2025-09-17_
 
 ## Execution Plan & Parallelisation
 
-- Default branch for all improvement work: `improvement-review-implementation`. Agents should branch from / merge back into this integration branch unless explicitly instructed otherwise.
+- Default branch for all improvement work: `project-hardening` (or the integration branch you designate). Agents should branch from / merge back into this integration branch unless explicitly instructed otherwise.
 
 1. **Wave 1 — Foundations**
-    1. `docs/tasks/shared-utilities-alignment.md`: establishes `src/shared/evm.ts`, `src/shared/api.ts`, and any common PNG helpers consumed downstream.
-    2. `docs/tasks/developer-experience-upgrades.md`: introduces lint/test tooling; can run alongside utilities because it touches configs and scripts only.
+    1. `docs/project-hardening/tasks/completed/shared/shared-utilities-alignment.md`: establishes `src/shared/evm.ts`, `src/shared/api.ts`, and any common PNG helpers consumed downstream.
+    2. `docs/project-hardening/tasks/pending/tooling/developer-experience-upgrades.md`: introduces lint/test tooling; can run alongside utilities because it touches configs and scripts only.
 
 2. **Wave 2 — Service Layer**
-    1. `docs/tasks/api-erc20-enhancements.md`: adopts shared helpers for ABI decoding/address validation; depends on Wave 1 exports.
-    2. `docs/tasks/api-upload-hardening.md`: reuses shared PNG/EVM helpers; may run in parallel with the ERC-20 task once both agents align on helper signatures (`decodeAbiString`, `isEvmAddress`, `readPng`).
+    1. `docs/project-hardening/tasks/pending/api/erc20-name-lookup.md`: adopts shared helpers for ABI decoding/address validation; depends on Wave 1 exports.
+    2. `docs/project-hardening/tasks/active/upload/upload-api-hardening.md`: reuses shared PNG/EVM helpers; may run in parallel with the ERC-20 task once both agents align on helper signatures (`decodeAbiString`, `isEvmAddress`, `readPng`).
 
 3. **Wave 3 — Frontend Integration**
-    1. `docs/tasks/upload-workflow-refactor.md`: consumes revised API payloads/helpers from Waves 1 & 2; ensure agreed module paths (`src/shared/evm`, `src/shared/imagePreview`).
-    2. `docs/tasks/auth-flow-hardening.md`: builds on the same shared helpers and any UX conventions defined earlier; can run concurrently with the upload refactor provided API error shapes are stable.
+    1. `docs/project-hardening/tasks/active/upload/upload-workflow-refactor.md`: consumes revised API payloads/helpers from Waves 1 & 2; ensure agreed module paths (`src/shared/evm`, `src/shared/imagePreview`).
+    2. `docs/project-hardening/tasks/pending/auth/auth-flow-hardening.md`: builds on the same shared helpers and any UX conventions defined earlier; can run concurrently with the upload refactor provided API error shapes are stable.
 
 4. **Coordination / Tracking**
-    1. `docs/tasks/improvement-review-tracker.md`: owned by the coordinating agent; stays active throughout, ensuring branch status, changelog, and cross-task validation.
+    1. `docs/project-hardening/review-tracker.md`: owned by the coordinating agent; stays active throughout, ensuring branch status, changelog, and cross-task validation.
 
-> **Tip:** Before starting any wave, sync the `improvement-review-implementation` branch, review upstream PRs for in-flight tasks, and confirm helper module contracts noted in each task’s “Agent Context” section.
+> **Tip:** Before starting any wave, sync the `project-hardening` integration branch, review upstream PRs for in-flight tasks, and confirm helper module contracts noted in each task’s “Agent Context” section.
 
 ## Frontend SPA (`src/`)
 

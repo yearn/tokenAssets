@@ -16,7 +16,7 @@ Centralise reusable helpers (EVM utilities, API base URL logic) to minimise dupl
 6. [x] Ensure shared code remains tree-shakeable and does not pull heavy dependencies into the client bundle.
 
 ### Agent Context
-- Wave 1 task; start immediately on `improvement-review-implementation` before API/frontend refactors.
+- Wave 1 task; start immediately on the `project-hardening` integration branch before API/frontend refactors.
 - Export helpers with the following signatures so downstream tasks can rely on them:
   - `isEvmAddress(address: string): boolean`
   - `decodeAbiString(resultHex: string): string`
@@ -38,7 +38,7 @@ Centralise reusable helpers (EVM utilities, API base URL logic) to minimise dupl
 
 ## Contributor Notes
 
-- [ ] To fully complete the task you must make a commit to github branch `improvement-review-implementation`.
+- [ ] To fully complete the task you must make a commit to github branch `project-hardening`.
 
 ### Please leave any additional information that may be useful for future contributors below
 
