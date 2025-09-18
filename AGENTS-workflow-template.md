@@ -26,6 +26,10 @@ The full documentation for OpenAI's Codex coding agents can be found at ~/code/c
 | `<approval-policy>` | MCP approval policy (e.g., `on-request`) |
 | `<validation-commands>` | Placeholder for the project's validation scripts or commands |
 
+> **Sandbox reminder:** When the harness restricts network access, rerun required remote commands (for example, `git fetch`) with the MCP escalation flag and a brief justification so the coordinator can obtain approval.
+
+> **Persistent worktrees:** Consider keeping long-lived folders such as `coordinator/` or `quality-control/` checked out on integration or review branches so you can reuse them across waves.
+
 ### Coordinator Setup
 
 - [ ] **Create and prepare the integration branch** for the current wave of tasks:
