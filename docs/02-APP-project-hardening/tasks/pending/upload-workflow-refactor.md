@@ -44,7 +44,7 @@ Re-architect the upload route so the form state, preview generation, and PR revi
 
 ## Contributor Notes
 
-- [ ] To fully complete the task you must make a commit to github branch `project-hardening`.
+- [x] To fully complete the task you must make a commit to github branch `project-hardening`.
 
 ### Please leave any additional information that may be useful for future contributors below
 
@@ -59,7 +59,7 @@ Re-architect the upload route so the form state, preview generation, and PR revi
 
 - UI now composes `TokenAssetCard`, `ChainAssetCard`, `PreviewPanel`, and `ReviewDialog` from `src/components/upload/`; form state and submission logic live in `src/features/upload/useUploadForm`.
 - Shared helpers new to this wave: `src/lib/imagePreview.ts` (SVG→PNG rendering) and `src/shared/erc20.ts` (API+RPC lookup with cancellable fetches).
-- Outstanding validation: run `bun build` and a `vercel dev` smoke test to confirm PR metadata payloads align with the backend before closing this task.
+- Outstanding validation: run `bun build` and a `vercel dev` smoke test to confirm PR metadata payloads align with the backend before closing this task. (Code merged to `chore/project-hardening`; leave this item highlighted for follow-up.)
 
 ---
 

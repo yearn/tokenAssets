@@ -12,11 +12,13 @@ _Last updated: 2025-09-19_
 
 | Task | Branch | Worktree | Agent | MCP `conversationId` | Status |
 | --- | --- | --- | --- | --- | --- |
+| Auth Flow Hardening | task/auth-flow-hardening | /home/ross/code/yearn/tokenAssets/worktrees/task-auth-flow-hardening | External Agent | N/A | In progress |
 
 ## Next Task Recommendation
 
-- Prioritise `Upload Workflow Refactor` (task/upload-workflow-refactor) for Wave 3 to layer the new API contracts into the UI.
-- Coordinate with the ERC-20 agent on any schema adjustments before starting `Auth Flow Hardening`.
+- Schedule the outstanding manual validation for `Upload Workflow Refactor` (token + chain flows in `vercel dev`) and capture results in the task doc.
+- Coordinate with the auth hardening agent on shared auth helpers while they continue `task/auth-flow-hardening`.
+- Prepare to kick off the next Wave 3 item once manual validation is signed off (see task queue).
 
 ## Pending Task Queue (from overview)
 
@@ -24,7 +26,7 @@ _Last updated: 2025-09-19_
 - [x] Developer Experience Upgrades — feature: Tooling (`docs/project-hardening/tasks/pending/tooling/developer-experience-upgrades.md`)
 - [x] Upload API Hardening — feature: Upload Services (`docs/project-hardening/tasks/active/upload/upload-api-hardening.md`)
 - [x] ERC-20 Name Lookup Enhancements — feature: API (`docs/project-hardening/tasks/pending/api/erc20-name-lookup.md`)
-- [ ] Upload Workflow Refactor — feature: Upload UI (`docs/project-hardening/tasks/active/upload/upload-workflow-refactor.md`)
+- [x] Upload Workflow Refactor — feature: Upload UI (`docs/project-hardening/tasks/active/upload/upload-workflow-refactor.md`)
 - [ ] Auth Flow Hardening — feature: Authentication (`docs/project-hardening/tasks/pending/auth/auth-flow-hardening.md`)
 
 ## Completed Tasks
@@ -32,6 +34,7 @@ _Last updated: 2025-09-19_
 - Shared Utilities Alignment — task/shared-utilities-alignment (merged into chore/project-hardening)
 - Developer Experience Upgrades — task/developer-experience-upgrades-manual (merged into chore/project-hardening)
 - Upload API Hardening — task/upload-api-hardening (merged into chore/project-hardening)
+- Upload Workflow Refactor — task/upload-workflow-refactor (merged into chore/project-hardening; manual smoke test still pending)
 
 ## Validation Expectations
 
