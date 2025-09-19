@@ -38,3 +38,4 @@ A lightweight SPA + Vercel Functions app for uploading token/chain assets and op
 - PNGs are generated client‑side and validated on the server.
 - Keep SVGs simple/optimized; ensure PNGs are exactly 32×32 and 128×128.
 - Optional git hook: copy `scripts/git-hooks/pre-commit.sample` to `scripts/git-hooks/pre-commit` and set `git config core.hooksPath scripts/git-hooks` to run lint/typecheck/tests automatically before commits.
+- Shared utilities (environment, API base, EVM helpers) live under `src/shared/` and are imported via the `@shared/*` alias from both SPA code and edge functions.

@@ -44,10 +44,10 @@ Strengthen linting, testing, and documentation so contributors can ship changes 
 
 #### What to focus on
 
-- Where did you have issues?
-- How did you solve them.
-- Be concise and information dense. This section will probably be read by an AI agent of similar knowledge of the world and of this codebase as you.
-- What is important from your current context window that would be useful to save?
+- Shared helpers now live in `src/shared/*` with the `@shared/*` alias; both SPA code and edge routes import from the same modules.
+- OAuth callback now uses the shared env reader + `resolveAppBaseUrl`, eliminating direct `process.env` access so Edge runtimes stay consistent.
+- Vitest upgraded to 2.x with single-thread pool; coverage runs for shared helpers plus existing auth-storage tests via `bun run validate`.
+- Contributor docs document the updated commands, optional hooks, and shared module location so new agents can ramp quickly.
 
 ---
 
