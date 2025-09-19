@@ -1,26 +1,48 @@
 import React, { useEffect } from 'react';
 import { createRoute, useNavigate } from '@tanstack/react-router';
 import { rootRoute } from '../../router';
-import { broadcastAuthChange, clearAuthPending, clearStoredState, readStoredState, storeAuthToken } from '../../lib/githubAuth';
+import {
+	broadcastAuthChange,
+	clearAuthError,
+	clearAuthPending,
+	clearStoredAuth,
+	clearStoredState,
+	readStoredState,
+	storeAuthError,
+	storeAuthToken
+} from '../../lib/githubAuth';
 
 const GithubSuccessComponent: React.FC = () => {
   const navigate = useNavigate();
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get('token');
-    const state = params.get('state');
-    const returnedState = readStoredState();
-    if (state && returnedState && state !== returnedState) {
-      console.warn('OAuth state mismatch.');
-    }
-    clearAuthPending();
-    if (token) {
-      storeAuthToken(token);
-      broadcastAuthChange();
-    }
-    if (state) clearStoredState();
-    navigate({ to: '/' });
-  }, [navigate]);
+	useEffect(() => {
+		const params = new URLSearchParams(window.location.search);
+		const token = params.get('token');
+		const state = params.get('state');
+		const expectedState = readStoredState();
+
+		if (state) clearStoredState();
+		clearAuthPending();
+
+		if (!token) {
+			clearStoredAuth();
+			storeAuthError('GitHub did not return an access token. Please try signing in again.');
+			broadcastAuthChange();
+			navigate({to: '/'});
+			return;
+		}
+
+		if (expectedState && state !== expectedState) {
+			console.warn('OAuth state mismatch.');
+			clearStoredAuth();
+			storeAuthError('GitHub login could not be verified. Please try signing in again.');
+		} else {
+			storeAuthToken(token);
+			clearAuthError();
+		}
+
+		broadcastAuthChange();
+		navigate({to: '/'});
+	}, [navigate]);
 
   return <p>Signing you in…</p>;
 };
