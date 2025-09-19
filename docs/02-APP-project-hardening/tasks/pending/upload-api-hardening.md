@@ -6,18 +6,18 @@ Make `api/upload.ts` resilient by validating submissions deterministically, shar
 
 ## Prerequisites
 
-- [ ] Read `api/upload.ts` and `api/github.ts` to understand current flow.
-- [ ] Confirm environment variables for GitHub access are available for local testing.
+- [x] Read `api/upload.ts` and `api/github.ts` to understand current flow.
+- [x] Confirm environment variables for GitHub access are available for local testing.
 
 ## Implementation Checklist
 
-1. [ ] Define shared helpers (e.g., `parseTokenSubmissions`, `assertPngDimensions`, `toRepoPath`) in a local module to remove duplicated loops.
-2. [ ] Validate each submission entry with an `isEvmAddress` check (reuse shared util once built) and return per-entry error messages.
-3. [ ] Ensure file parsing aligns by iterating over indexed `svg_*` fields instead of relying on filtered address arrays.
-4. [ ] Extract PNG reading/validation into reusable functions used by both token and chain branches.
-5. [ ] Refactor GitHub PR creation to reuse a single code path for blob/tree creation; minimise duplication between direct and fork flows.
-6. [ ] Add structured logging or error messages around `resolveTargetRepo` so misconfiguration is obvious.
-7. [ ] Update tests or add new ones (with `vitest`) covering `pngDimensions` and submission parsing.
+1. [x] Define shared helpers (e.g., `parseTokenSubmissions`, `assertPngDimensions`, `toRepoPath`) in a local module to remove duplicated loops.
+2. [x] Validate each submission entry with an `isEvmAddress` check (reuse shared util once built) and return per-entry error messages.
+3. [x] Ensure file parsing aligns by iterating over indexed `svg_*` fields instead of relying on filtered address arrays.
+4. [x] Extract PNG reading/validation into reusable functions used by both token and chain branches.
+5. [x] Refactor GitHub PR creation to reuse a single code path for blob/tree creation; minimise duplication between direct and fork flows.
+6. [x] Add structured logging or error messages around `resolveTargetRepo` so misconfiguration is obvious.
+7. [x] Update tests or add new ones (with `vitest`) covering `pngDimensions` and submission parsing.
 
 ### Agent Context
 
@@ -28,9 +28,9 @@ Make `api/upload.ts` resilient by validating submissions deterministically, shar
 
 ## Validation Checklist
 
-- [ ] `bun typecheck`
-- [ ] `bun build`
-- [ ] (If vitest added) `bun test` or equivalent.
+- [x] `bun typecheck`
+- [x] `bun build`
+- [x] (If vitest added) `bun test` or equivalent.
 - [ ] Manual API test via `vercel dev`:
   - Successful token upload request returns PR URL.
   - Malformed address returns descriptive JSON error without 500.
@@ -56,3 +56,8 @@ Make `api/upload.ts` resilient by validating submissions deterministically, shar
 - How did you solve them.
 - Be concise and information dense. This section will probably be read by an AI agent of similar knowledge of the world and of this codebase as you.
 - What is important from your current context window that would be useful to save?
+
+#### Notes
+
+- Centralised form parsing + PNG checks in `app/api/_lib/upload.ts`; consistent repo logging now emitted from `resolveTargetRepo()`.
+- Added vitest suites for shared image helpers (`app/src/shared/image.test.ts`) and upload form parsing (`app/api/_lib/upload.test.ts`); manual `vercel dev` smoke validation still pending.
