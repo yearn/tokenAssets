@@ -14,6 +14,7 @@ None — kick off a task by creating `task/<slug>` from `chore/project-hardening
 
 | Task | Branch | Worktree | Agent | MCP `conversationId` | Status |
 | --- | --- | --- | --- | --- | --- |
+| ERC-20 Name Lookup Enhancements | task/erc20-name-lookup | /home/ross/code/yearn/tokenAssets/worktrees/task-erc20-name-lookup | Codex Task Agent | N/A | In progress |
 | Shared Utilities Alignment | task/shared-utilities-alignment | /home/ross/code/yearn/tokenAssets/worktrees/task-shared-utilities-alignment | Codex Task Agent | N/A | In progress |
 
 ## Pending Task Queue (from overview)

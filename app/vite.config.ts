@@ -19,7 +19,7 @@ export default defineConfig({
 		test: {
 			coverage: {
 				reporter: ['text', 'html'],
-				include: ['src/shared/**/*.ts']
+				include: ['src/shared/**/*.ts', 'api/**/*.ts']
 			},
 			environment: 'node',
 			threads: false,
@@ -28,6 +28,6 @@ export default defineConfig({
 					singleThread: true
 				}
 			},
-			include: [...configDefaults.include, 'src/shared/**/*.test.ts']
+			include: [...configDefaults.include, 'src/shared/**/*.test.ts', 'api/**/*.test.ts']
 		}
 	});

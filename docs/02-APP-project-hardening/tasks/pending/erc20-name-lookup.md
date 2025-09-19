@@ -6,18 +6,18 @@ Consolidate ABI decoding between client and server, add caching, and make RPC co
 
 ## Prerequisites
 
-- [ ] Review `api/erc20-name.ts` and the client-side lookup logic in `src/routes/upload.tsx`.
-- [ ] Identify where shared utilities will live (e.g., `shared/erc20.ts`).
+- [x] Review `api/erc20-name.ts` and the client-side lookup logic in `src/routes/upload.tsx`.
+- [x] Identify where shared utilities will live (e.g., `shared/erc20.ts`).
 
 ## Implementation Checklist
 
-1. [ ] Create `shared/erc20.ts` (or similar) exporting ABI decoding, address validation, and RPC selection helpers.
-2. [ ] Update both the API and client to import shared helpers instead of maintaining duplicate logic.
-3. [ ] Add an in-memory cache in the API endpoint keyed by `${chainId}:${address}` with a short TTL to reduce redundant RPC calls.
-4. [ ] Validate RPC URLs at startup (or first request) and surface a descriptive error when none are configured.
-5. [ ] Ensure the API distinguishes between RPC HTTP errors, contract errors, and empty results with clear status codes.
-6. [ ] Update client-side lookup to use AbortControllers or TanStack Query so cancelled requests do not update state.
-7. [ ] Document environment variable expectations for custom RPC URLs.
+1. [x] Create `shared/erc20.ts` (or similar) exporting ABI decoding, address validation, and RPC selection helpers.
+2. [x] Update both the API and client to import shared helpers instead of maintaining duplicate logic.
+3. [x] Add an in-memory cache in the API endpoint keyed by `${chainId}:${address}` with a short TTL to reduce redundant RPC calls.
+4. [x] Validate RPC URLs at startup (or first request) and surface a descriptive error when none are configured.
+5. [x] Ensure the API distinguishes between RPC HTTP errors, contract errors, and empty results with clear status codes.
+6. [x] Update client-side lookup to use AbortControllers or TanStack Query so cancelled requests do not update state.
+7. [x] Document environment variable expectations for custom RPC URLs.
 
 ### Agent Context
 - Wave 2 task; begin after Wave 1 finishes exporting shared helpers (`isEvmAddress`, `decodeAbiString`, `getRpcUrl`).
@@ -27,9 +27,9 @@ Consolidate ABI decoding between client and server, add caching, and make RPC co
 
 ## Validation Checklist
 
-- [ ] `bun typecheck`
-- [ ] `bun build`
-- [ ] (If tests added) `bun test`
+- [x] `bun typecheck`
+- [x] `bun build`
+- [x] (If tests added) `bun test`
 - [ ] Manual lookup via `curl` or `vercel dev` ensuring:
   - Repeated requests hit the cache (check logs or mock timings).
   - Invalid addresses return 400 with helpful messaging.
@@ -50,7 +50,6 @@ Consolidate ABI decoding between client and server, add caching, and make RPC co
 
 #### What to focus on
 
-- Where did you have issues?
-- How did you solve them?
-- What is important from your current context window that would be useful to save?
-- Be concise and information dense. This section will probably be read by an AI agent of similar knowledge of the world and of this codebase as you.
+- API now returns `{name, cache}` on success and `{error: {code, message, details?}}` on failure. Codes cover invalid input, missing RPC config, RPC HTTP errors, JSON errors, empty result, and decode failures.
+- Cache TTL/size/timeout are configurable via `ERC20_NAME_CACHE_TTL_MS`, `ERC20_NAME_CACHE_SIZE`, `ERC20_NAME_RPC_TIMEOUT_MS`; defaults are 5 minutes, 256 entries, and 10 seconds respectively.
+- Client lookup keeps an AbortController per `(chainId,address)`; always guard `fetchErc20Name` callers with `try/catch` and skip updates when `isLookupAbort(err)` is true to avoid flashing errors during rapid edits.
