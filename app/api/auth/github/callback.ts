@@ -1,5 +1,5 @@
-import {resolveAppBaseUrl} from '@shared/api';
-import {readEnv} from '@shared/env';
+import {resolveAppBaseUrl} from '../../../src/shared/api.js';
+import {readEnv} from '../../../src/shared/env.js';
 
 export const config = { runtime: 'nodejs' };
 

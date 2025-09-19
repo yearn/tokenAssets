@@ -1,5 +1,5 @@
-import {decodeAbiString, getRpcUrl, isEvmAddress} from '@shared/evm';
-import {readEnv} from '@shared/env';
+import {decodeAbiString, getRpcUrl, isEvmAddress} from '../src/shared/evm.js';
+import {readEnv} from '../src/shared/env.js';
 
 export const config = { runtime: 'nodejs' };
 
