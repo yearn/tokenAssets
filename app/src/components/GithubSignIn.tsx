@@ -9,13 +9,14 @@ export const GithubSignIn: React.FC = () => {
 		signIn,
 		signOut,
 		isPending,
+		isAuthorizing,
 		isProfileLoading,
 		error,
 		dismissError,
 		cancelPending
 	} = useGithubAuth();
 
-	const showPendingDialog = isPending && !isAuthenticated;
+	const showPendingDialog = isAuthorizing;
 
 	return (
 		<div className="flex flex-col items-end gap-2">

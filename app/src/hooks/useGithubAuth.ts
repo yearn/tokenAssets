@@ -12,6 +12,7 @@ import {
 	clearAuthError,
 	clearAuthPending,
 	clearStoredAuth,
+	clearStoredState,
 	createOAuthState,
 	markAuthPending,
 	readAuthError,
@@ -27,6 +28,7 @@ type UseGithubAuthResult = {
 	login: string | null;
 	isAuthenticated: boolean;
 	isPending: boolean;
+	isAuthorizing: boolean;
 	isProfileLoading: boolean;
 	error: string | null;
 	signIn: () => void;
@@ -43,12 +45,12 @@ function readClientId() {
 export function useGithubAuth(): UseGithubAuthResult {
 	const queryClient = useQueryClient();
 	const [token, setToken] = useState<string | null>(() => readStoredToken());
-	const [isPending, setIsPending] = useState<boolean>(() => readAuthPending());
+	const [pendingAuth, setPendingAuth] = useState<boolean>(() => readAuthPending());
 	const [error, setError] = useState<string | null>(() => readAuthError());
 
 	const syncFromStorage = useCallback(() => {
 		setToken(readStoredToken());
-		setIsPending(readAuthPending());
+		setPendingAuth(readAuthPending());
 		setError(readAuthError());
 	}, []);
 
@@ -87,7 +89,7 @@ export function useGithubAuth(): UseGithubAuthResult {
 			clearStoredAuth();
 			clearAuthPending();
 			setToken(null);
-			setIsPending(false);
+			setPendingAuth(false);
 			queryClient.removeQueries({queryKey: PROFILE_QUERY_KEY});
 			if (message) {
 				storeAuthError(message);
@@ -115,7 +117,7 @@ export function useGithubAuth(): UseGithubAuthResult {
 
 	useEffect(() => {
 		if (!profileQuery.isSuccess) return;
-		setIsPending(false);
+		setPendingAuth(false);
 		clearAuthPending();
 		clearAuthError();
 		setError(null);
@@ -123,7 +125,7 @@ export function useGithubAuth(): UseGithubAuthResult {
 
 	useEffect(() => {
 		if (!profileQuery.isError || !profileQuery.error) return;
-		setIsPending(false);
+		setPendingAuth(false);
 		clearAuthPending();
 		const err = profileQuery.error;
 		if (err instanceof GithubClientError && (err.status === 401 || err.status === 403)) {
@@ -142,7 +144,8 @@ export function useGithubAuth(): UseGithubAuthResult {
 
 	const cancelPending = useCallback(() => {
 		clearAuthPending();
-		setIsPending(false);
+		clearStoredState();
+		setPendingAuth(false);
 	}, []);
 
 	const signIn = useCallback(() => {
@@ -153,12 +156,12 @@ export function useGithubAuth(): UseGithubAuthResult {
 			storeAuthError(message);
 			setError(message);
 			clearAuthPending();
-			setIsPending(false);
+			setPendingAuth(false);
 			return;
 		}
 		const state = createOAuthState();
 		storeAuthState(state);
-		setIsPending(true);
+		setPendingAuth(true);
 		clearAuthError();
 		setError(null);
 		markAuthPending();
@@ -177,8 +180,10 @@ export function useGithubAuth(): UseGithubAuthResult {
 
 	const profile = profileQuery.data ?? null;
 	const login = profile?.login ?? null;
-	const isProfileLoading = profileQuery.isPending || profileQuery.isFetching;
+	const isProfileLoading = profileQuery.isFetching;
 	const isAuthenticated = Boolean(token);
+	const isAuthorizing = pendingAuth && !isAuthenticated;
+	const isPending = pendingAuth || (isAuthenticated && isProfileLoading);
 
 	return useMemo(
 		() => ({
@@ -186,7 +191,8 @@ export function useGithubAuth(): UseGithubAuthResult {
 			profile,
 			login,
 			isAuthenticated,
-			isPending: isPending || isProfileLoading,
+			isPending,
+			isAuthorizing,
 			isProfileLoading,
 			error,
 			signIn,
@@ -201,6 +207,7 @@ export function useGithubAuth(): UseGithubAuthResult {
 			login,
 			isAuthenticated,
 			isPending,
+			isAuthorizing,
 			isProfileLoading,
 			error,
 			signIn,
