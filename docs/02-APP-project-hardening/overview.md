@@ -1,11 +1,11 @@
 # Project Hardening Overview
 
-_Last updated: 2025-09-18_
+_Last updated: 2025-09-19_
 
 ## Key Priorities
 
 - Break the upload workflow into smaller, testable modules and shared utilities to reduce the 1.1k-line `UploadComponent` and remove duplicated preview/state logic (`src/routes/upload.tsx:1-1139`).
-- Harden the upload API surface with server-side address validation, reusable file validation helpers, and consistent metadata handling to prevent malformed submissions (`api/upload.ts:80-200`).
+- Harden the upload API surface with server-side address validation, reusable file validation helpers, and consistent metadata handling to prevent malformed submissions (`api/upload.ts:80-200`). **Status:** ✅ completed in `task/upload-api-hardening` (Wave 2) and merged into `chore/project-hardening`.
 - Tighten OAuth and GitHub integration flows by using crypto-safe state generation, caching the user profile, and centralising auth state updates to remove repeated storage/event wiring (`src/components/GithubSignIn.tsx:17-124`, `src/components/Header.tsx:6-27`).
 
 ## Execution Plan & Parallelisation
@@ -16,9 +16,9 @@ _Last updated: 2025-09-18_
     1. `docs/project-hardening/tasks/completed/shared/shared-utilities-alignment.md`: establishes `src/shared/evm.ts`, `src/shared/api.ts`, and any common PNG helpers consumed downstream.
     2. `docs/project-hardening/tasks/pending/tooling/developer-experience-upgrades.md`: introduces lint/test tooling; can run alongside utilities because it touches configs and scripts only.
 
-2. **Wave 2 — Service Layer**
-    1. `docs/project-hardening/tasks/pending/api/erc20-name-lookup.md`: adopts shared helpers for ABI decoding/address validation; depends on Wave 1 exports.
-    2. `docs/project-hardening/tasks/active/upload/upload-api-hardening.md`: reuses shared PNG/EVM helpers; may run in parallel with the ERC-20 task once both agents align on helper signatures (`decodeAbiString`, `isEvmAddress`, `readPng`).
+2. **Wave 2 — Service Layer** *(Wave complete)*
+    1. `docs/project-hardening/tasks/pending/api/erc20-name-lookup.md`: adopts shared helpers for ABI decoding/address validation; depends on Wave 1 exports. *(In progress — coordinate with assigned agent.)*
+    2. `docs/project-hardening/tasks/active/upload/upload-api-hardening.md`: reuses shared PNG/EVM helpers; may run in parallel with the ERC-20 task once both agents align on helper signatures (`decodeAbiString`, `isEvmAddress`, `readPng`). **Merged on 2025-09-19 into `chore/project-hardening`.**
 
 3. **Wave 3 — Frontend Integration**
     1. `docs/project-hardening/tasks/active/upload/upload-workflow-refactor.md`: consumes revised API payloads/helpers from Waves 1 & 2; ensure agreed module paths (`src/shared/evm`, `src/shared/imagePreview`).
