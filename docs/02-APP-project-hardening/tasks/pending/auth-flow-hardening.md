@@ -35,6 +35,7 @@ Improve GitHub OAuth UX and security by centralising auth state management, usin
   - Profile name caches and persists on reload.
   - Sign-out clears tokens and pending state.
 - [ ] Confirm no console warnings about state mismatch or unhandled promise rejections.
+- Note: run `bun run test` (Vitest) or `bun run validate`; plain `bun test` executes Bun's experimental runner, which lacks the Vitest helpers this project relies on (`vi.stubGlobal`, etc.).
 
 ## Completion Criteria
 
