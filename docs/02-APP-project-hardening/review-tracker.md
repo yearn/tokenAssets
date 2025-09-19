@@ -14,7 +14,7 @@ None — kick off a task by creating `task/<slug>` from `chore/project-hardening
 
 | Task | Branch | Worktree | Agent | MCP `conversationId` | Status |
 | --- | --- | --- | --- | --- | --- |
-| Shared Utilities Alignment | task/shared-utilities-alignment | /home/ross/code/yearn/tokenAssets/worktrees/task-shared-utilities-alignment | Codex Task Agent | N/A | In progress |
+| Developer Experience Upgrades | `task/developer-experience-upgrades-manual` | `/home/ross/code/yearn/tokenAssets/worktrees/task-developer-experience-upgrades` | Coordinator (manual) | n/a | Ready for merge |
 
 ## Pending Task Queue (from overview)
 

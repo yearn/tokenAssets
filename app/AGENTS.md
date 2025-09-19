@@ -4,8 +4,7 @@
 
 - Assets: `tokens/<chainId>/<address>/` with `logo.svg`, `logo-32.png`, `logo-128.png`.
 - Chains: `chains/<chainId>/` (numeric `chainId`).
-- Image Upload App: `app/` (SPA + Vercel edge functions).
-- Shared helpers: `app/src/shared/` (import via `@shared/*` from both SPA and edge code).
+- Image Upload App: `app/`.
 - Automation: `scripts/` (e.g., `ingestTokens.js`; inputs in `scripts/token-images-to-ingest/`).
 - Root configs: `.editorconfig`, `.prettierrc`, `package.json`.
 
@@ -14,9 +13,7 @@
 - SPA dev: `bun dev` in `app` (Vite on `http://localhost:5173`).
 - Vercel dev: `vercel dev` in `app` (serves API under `/api/*`).
 - Build/preview: `bun build` then `bun preview`.
-- Type/lint: `bun run lint` or `bun run typecheck` (TS only).
-- Tests: `bun run test` (Vitest, single-threaded; covers `@shared` helpers).
-- Full sweep: `bun run validate` (`lint → typecheck → test`).
+- Lint/typecheck/tests: `bun lint`, `bun typecheck`, `bun test` (or `bun run validate`).
 - Ingest assets: `node scripts/ingestTokens.js ./scripts/tokensToInjest.json` — copies prepared images into `tokens/`.
 
 ## Coding Style & Naming Conventions
@@ -27,10 +24,10 @@
 - Addresses: EVM lowercase; Solana case‑sensitive (e.g., `1151111081099710`).
 - Directories: numeric `chainId`; addresses under the chain folder.
 
--## Testing Guidelines
+## Testing Guidelines
 
-- Unit tests: `bun run test` focuses on shared helpers (ABI decode, RPC resolution, API base builders).
-- Integration smoke: run `vercel dev` and validate:
+- Run unit tests with `bun test` (vitest, jsdom environment).
+- Validate via Vercel dev for end-to-end flows:
   - OAuth callback: `/api/auth/github/callback` returns to `/auth/github/success`.
   - ERC-20 name lookup: POST `/api/erc20-name` (Edge).
   - Upload + PR: POST `/api/upload` (Edge) and confirm PR URL.

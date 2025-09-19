@@ -35,6 +35,13 @@ Node Version: 18.x
 Environment Variables: None
 ```
 
+## Tooling & Validation
+
+- `bun lint` — ESLint (React + TypeScript).
+- `bun typecheck` — TypeScript project check.
+- `bun test` — Vitest unit tests for shared helpers.
+- `bun run validate` — Run lint, typecheck, and unit tests together.
+
 ## Supported chains
 
 -   1: Ethereum

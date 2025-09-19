@@ -1,4 +1,4 @@
-import { createRootRoute, createRoute, createRouter, Outlet } from '@tanstack/react-router';
+import { createRootRoute, createRouter, Outlet } from '@tanstack/react-router';
 import React from 'react';
 import { UploadRoute } from './routes/upload';
 import { GithubSuccessRoute } from './routes/auth/github-success';

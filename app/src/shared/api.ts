@@ -43,7 +43,7 @@ export function resolveAppBaseUrl(req?: Request): string {
 	if (explicit && explicit !== '/') return explicit;
 	if (req) {
 		try {
-			const origin = new URL(req.url).origin;
+			const origin = new URL((req as { url?: string }).url ?? '').origin;
 			if (origin) return origin;
 		} catch (_) {
 			// ignore parse failure

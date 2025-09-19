@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Lightweight pre-commit hook template.
+# Usage:
+#   chmod +x scripts/git-hooks/pre-commit.sample
+#   git config core.hooksPath scripts/git-hooks
+#   mv scripts/git-hooks/pre-commit.sample scripts/git-hooks/pre-commit
+# Runs repo validation before allowing a commit.
+
+set -euo pipefail
+
+printf '\n▶ Running repo validation (lint → typecheck → tests)\n'
+
+bun run validate
+
+printf '\n✅ Validation passed\n'

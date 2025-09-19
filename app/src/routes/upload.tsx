@@ -1,7 +1,6 @@
 import React, {Fragment, useEffect, useMemo, useState} from 'react';
 import {createRoute} from '@tanstack/react-router';
 import {rootRoute} from '../router';
-import {GithubSignIn} from '../components/GithubSignIn';
 import {API_BASE_URL, buildApiUrl} from '../lib/api';
 import {Dialog, Switch, Transition} from '@headlessui/react';
 import {getRpcUrl, isEvmAddress, listKnownChains} from '../lib/chains';
