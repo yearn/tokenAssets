@@ -12,21 +12,22 @@ _Last updated: 2025-09-19_
 
 | Task | Branch | Worktree | Agent | MCP `conversationId` | Status |
 | --- | --- | --- | --- | --- | --- |
-| Auth Flow Hardening | task/auth-flow-hardening | /home/ross/code/yearn/tokenAssets/worktrees/task-auth-flow-hardening | External Agent | N/A | In progress |
+| Auth Flow Hardening | task/auth-flow-hardening | /home/ross/code/yearn/tokenAssets/worktrees/task-auth-flow-hardening | Codex Task Agent | N/A | In progress |
+| ERC-20 Name Lookup Enhancements | task/erc20-name-lookup | /home/ross/code/yearn/tokenAssets/worktrees/task-erc20-name-lookup | Codex Task Agent | N/A | In progress |
 
 ## Next Task Recommendation
 
-- Schedule the outstanding manual validation for `Upload Workflow Refactor` (token + chain flows in `vercel dev`) and capture results in the task doc.
-- Coordinate with the auth hardening agent on shared auth helpers while they continue `task/auth-flow-hardening`.
-- Prepare to kick off the next Wave 3 item once manual validation is signed off (see task queue).
+- Finish auth UX polish: run the manual OAuth smoke test (`vercel dev`) and capture the outcome in `auth-flow-hardening.md`.
+- Stay synced with the ERC-20 agent so shared GitHub helpers and error contracts remain compatible.
+- Once auth hardening is signed off, review the Wave 4 backlog and line up the next integration task.
 
 ## Pending Task Queue (from overview)
 
 - [x] Shared Utilities Alignment — feature: Shared Core (`docs/project-hardening/tasks/completed/shared/shared-utilities-alignment.md`)
 - [x] Developer Experience Upgrades — feature: Tooling (`docs/project-hardening/tasks/pending/tooling/developer-experience-upgrades.md`)
 - [x] Upload API Hardening — feature: Upload Services (`docs/project-hardening/tasks/active/upload/upload-api-hardening.md`)
-- [x] ERC-20 Name Lookup Enhancements — feature: API (`docs/project-hardening/tasks/pending/api/erc20-name-lookup.md`)
 - [x] Upload Workflow Refactor — feature: Upload UI (`docs/project-hardening/tasks/active/upload/upload-workflow-refactor.md`)
+- [ ] ERC-20 Name Lookup Enhancements — feature: API (`docs/project-hardening/tasks/pending/api/erc20-name-lookup.md`)
 - [ ] Auth Flow Hardening — feature: Authentication (`docs/project-hardening/tasks/pending/auth/auth-flow-hardening.md`)
 
 ## Completed Tasks
@@ -34,7 +35,7 @@ _Last updated: 2025-09-19_
 - Shared Utilities Alignment — task/shared-utilities-alignment (merged into chore/project-hardening)
 - Developer Experience Upgrades — task/developer-experience-upgrades-manual (merged into chore/project-hardening)
 - Upload API Hardening — task/upload-api-hardening (merged into chore/project-hardening)
-- Upload Workflow Refactor — task/upload-workflow-refactor (merged into chore/project-hardening; manual smoke test still pending)
+- Upload Workflow Refactor — task/upload-workflow-refactor (merged into chore/project-hardening; manual UI validation tracked in task doc)
 
 ## Validation Expectations
 

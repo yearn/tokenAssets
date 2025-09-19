@@ -6,7 +6,7 @@ _Last updated: 2025-09-19_
 
 - Break the upload workflow into smaller, testable modules and shared utilities to reduce the 1.1k-line `UploadComponent` and remove duplicated preview/state logic (`src/routes/upload.tsx:1-1139`).
 - Harden the upload API surface with server-side address validation, reusable file validation helpers, and consistent metadata handling to prevent malformed submissions (`api/upload.ts:80-200`). **Status:** ✅ completed in `task/upload-api-hardening` (Wave 2) and merged into `chore/project-hardening`.
-- Tighten OAuth and GitHub integration flows by using crypto-safe state generation, caching the user profile, and centralising auth state updates to remove repeated storage/event wiring (`src/components/GithubSignIn.tsx:17-124`, `src/components/Header.tsx:6-27`).
+- Tighten OAuth and GitHub integration flows by keeping crypto-safe state generation and profile caching consolidated in the shared hook (`src/hooks/useGithubAuth.ts`) and dropping duplicated storage listeners from UI components.
 
 ## Execution Plan & Parallelisation
 
@@ -47,7 +47,7 @@ _Last updated: 2025-09-19_
 
 - Issue: Both the blur handlers that resolve ERC-20 names (`src/routes/upload.tsx:400-454`, `src/routes/upload.tsx:770-838`) duplicate async logic and mix UI effects with data fetching, while `fetchErc20Name` reimplements the ABI decoding already present in `api/erc20-name.ts`.
 
-- Recommendation: Extract a shared helper for name resolution that lives in `src/lib/erc20.ts` and reuse it in both the component and the API. Wrap the async call in a cancellable hook using TanStack Query so stale responses do not update state.
+- Recommendation: Extract a shared helper for name resolution that lives in `src/shared/erc20.ts` and reuse it in both the component and the API. Wrap the async call in a cancellable hook using TanStack Query so stale responses do not update state.
 
 ---
 
@@ -61,23 +61,12 @@ _Last updated: 2025-09-19_
 
 - Recommendation: Replace manual input creation with hidden file inputs controlled via refs, and rely on controlled `Switch` components with accessible labelling (`aria-checked`, `aria-labelledby`).
 
-### Auth components (`src/components/GithubSignIn.tsx`, `src/components/Header.tsx`)
+### Auth components (`src/hooks/useGithubAuth.ts`, `src/components/GithubSignIn.tsx`, `src/components/Header.tsx`)
 
-- Issue: OAuth state randomness relies on `Math.random` (`src/components/GithubSignIn.tsx:17-22`) and repeats storage synchronisation logic already handled in `Header` (`src/components/Header.tsx:6-27`).
-
-- Recommendation: Use `crypto.getRandomValues` (with a fallback for older browsers) for the state string and centralise auth event subscription in a dedicated `useGithubAuth` hook consumed by both `Header` and `GithubSignIn`.
-
----
-
-- Issue: `GithubSignIn` fetches the user profile directly from GitHub on every token change (`src/components/GithubSignIn.tsx:57-70`) without caching or cancellation, and errors fall back to `alert` usage (`src/components/GithubSignIn.tsx:77-90`).
-
-- Recommendation: Provide a lightweight client wrapper over the repo’s API routes that proxy GitHub, cache the profile with TanStack Query (already bundled but unused), and surface non-blocking UI feedback instead of `alert`.
-
----
-
-- Issue: `Header` re-mounts `GithubSignIn` using the `key` prop (`src/components/Header.tsx:27`), causing modal state to reset whenever auth changes.
-  
-- Recommendation: Pass the token down as props or via context so child components control their own state transitions without re-mounting.
+- Canonical auth state now lives in `src/hooks/useGithubAuth.ts`. The hook is browser-safe, generates crypto-backed OAuth state strings with a Math.random fallback, synchronises session storage, and keeps TanStack Query profile caches in sync across tabs.
+- GitHub API access should flow through `src/api/client/github.ts` which wraps `/api/auth/github/me`, normalises profile data, and throws `GithubClientError` with status codes the hook can interpret.
+- `GithubSignIn` surfaces sign-in/out actions, a cancellable pending dialog, and inline alert messaging driven by the hook. Avoid manual storage listeners or `alert` usage in other components.
+- Downstream components (e.g., `Header`) should consume the hook rather than forcing remounts with `key`. This keeps dialogs stable and pending state visible during redirects.
 
 ## API Layer (`api/`)
 
