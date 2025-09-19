@@ -1,3 +1,6 @@
+import {resolveAppBaseUrl} from '@shared/api';
+import {readEnv} from '@shared/env';
+
 export const config = { runtime: 'edge' };
 
 export default async function (req: Request): Promise<Response> {
@@ -12,8 +15,8 @@ export default async function (req: Request): Promise<Response> {
 			});
 		}
 
-		const clientId = process.env.GITHUB_CLIENT_ID || process.env.VITE_GITHUB_CLIENT_ID;
-		const clientSecret = process.env.GITHUB_CLIENT_SECRET;
+		const clientId = readEnv('GITHUB_CLIENT_ID') ?? readEnv('VITE_GITHUB_CLIENT_ID');
+		const clientSecret = readEnv('GITHUB_CLIENT_SECRET');
 		if (!clientId || !clientSecret) {
 			return new Response(JSON.stringify({ error: 'Missing GitHub OAuth env vars' }), {
 				status: 500,
@@ -39,7 +42,7 @@ export default async function (req: Request): Promise<Response> {
 			});
 		}
 
-		const appBase = process.env.APP_BASE_URL || new URL(req.url).origin;
+		const appBase = resolveAppBaseUrl(req);
 		const redirect = new URL('/auth/github/success', appBase);
 		redirect.searchParams.set('token', accessToken);
 		redirect.searchParams.set('state', state);
@@ -51,4 +54,3 @@ export default async function (req: Request): Promise<Response> {
 		});
 	}
 }
-

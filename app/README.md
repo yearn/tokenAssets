@@ -20,8 +20,9 @@ A lightweight SPA + Vercel Functions app for uploading token/chain assets and op
 - `bun dev` — Vite dev server for the SPA (http://localhost:5173).
 - `vercel dev` — Runs API routes and serves the SPA locally (recommended for full flow).
 - `bun build` / `bun preview` — Build and preview the SPA.
-- `bun typecheck` — TypeScript type checks (acts as lightweight lint).
-- `bun lint` — Alias to type checks.
+- `bun lint` / `bun typecheck` — TypeScript checks; safe to run in CI.
+- `bun test` — Vitest suite validating shared helpers (`@shared/*`).
+- `bun run validate` — Runs lint → typecheck → test in sequence.
 
 ## App Flow (What Calls What)
 
@@ -35,3 +36,4 @@ A lightweight SPA + Vercel Functions app for uploading token/chain assets and op
 
 - PNGs are generated client‑side and validated on the server.
 - Keep SVGs simple/optimized; ensure PNGs are exactly 32×32 and 128×128.
+- Shared utilities (ABI decoding, RPC resolution, API base builders) live under `app/src/shared/` and can be imported via the `@shared/*` alias from both SPA and edge runtime code.

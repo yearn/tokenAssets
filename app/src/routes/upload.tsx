@@ -2,11 +2,12 @@ import React, {Fragment, useEffect, useMemo, useState} from 'react';
 import {createRoute} from '@tanstack/react-router';
 import {rootRoute} from '../router';
 import {GithubSignIn} from '../components/GithubSignIn';
-import {API_BASE_URL} from '../lib/api';
+import {API_BASE_URL, buildApiUrl} from '../lib/api';
 import {Dialog, Switch, Transition} from '@headlessui/react';
 import {getRpcUrl, isEvmAddress, listKnownChains} from '../lib/chains';
 import {SegmentedToggle} from '../components/SegmentedToggle';
 import {AUTH_CHANGE_EVENT, TOKEN_STORAGE_KEY, readStoredToken} from '../lib/githubAuth';
+import {decodeAbiString} from '@shared/evm';
 
 type TokenItem = {
 	chainId: string;
@@ -75,7 +76,7 @@ export const UploadComponent: React.FC = () => {
 		if (!cid || Number.isNaN(cid)) throw new Error('Invalid chain');
 		// Prefer server endpoint to avoid CORS and centralize env
 		try {
-			const url = new URL('/api/erc20-name', API_BASE_URL).toString();
+			const url = buildApiUrl('/api/erc20-name', API_BASE_URL);
 			const res = await fetch(url, {
 				method: 'POST',
 				headers: {'Content-Type': 'application/json'},
@@ -107,28 +108,6 @@ export const UploadComponent: React.FC = () => {
 		const result: string | undefined = json?.result;
 		if (!result || result === '0x') throw new Error('Empty result');
 		return decodeAbiString(result);
-	}
-
-	function decodeAbiString(resultHex: string): string {
-		const hex = resultHex.startsWith('0x') ? resultHex.slice(2) : resultHex;
-		// Dynamic string encoding: offset (32 bytes), length (32 bytes), data
-		if (hex.length >= 192) {
-			const lenHex = hex.slice(64, 128);
-			const len = parseInt(lenHex || '0', 16);
-			const dataHex = hex.slice(128, 128 + len * 2);
-			return hexToUtf8(dataHex);
-		}
-		// Fallback: bytes32-like (padded)
-		if (hex.length === 64) {
-			return hexToUtf8(hex.replace(/00+$/, ''));
-		}
-		// Last resort: try to interpret whatever is there
-		return hexToUtf8(hex);
-	}
-
-	function hexToUtf8(hex: string): string {
-		const bytes = hex.match(/.{1,2}/g)?.map(b => parseInt(b, 16)) || [];
-		return new TextDecoder().decode(new Uint8Array(bytes)).replace(/\u0000+$/, '');
 	}
 
 	const onChainFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -323,7 +302,7 @@ export const UploadComponent: React.FC = () => {
 		if (!token) return alert('Sign in with GitHub first.');
 		setSubmitting(true);
 		try {
-			const reqUrl = new URL('/api/upload', API_BASE_URL).toString();
+			const reqUrl = buildApiUrl('/api/upload', API_BASE_URL);
 			const form = await buildFormData({title: prTitle, body: prBody});
 			const res = await fetch(reqUrl, {method: 'POST', headers: {Authorization: `Bearer ${token}`}, body: form});
 			if (!res.ok) {
