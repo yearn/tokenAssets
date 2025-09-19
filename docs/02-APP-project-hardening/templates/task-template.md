@@ -24,6 +24,12 @@ Describe the desired outcome and why it matters.
 - Summarise the conditions that must be true before calling the task complete.
 - Point to deliverables (code modules updated, docs written, etc.).
 
+## Agent Guidelines and pre-requisites
+
+- Confirm that there is a branch and worktree available for you to work in that is named after the current task. The worktree should be in the /worktrees folder at the root of the directory. If either of these do not exist, please create them. Work exclusively in that branch and worktree.
+- You do not need to ask permission to make changes in that worktree and branch unless the required commands are outside of you current permissions (shell commands, network access, etc.). You should not need to interface with remote repos.
+- Do your best to finish the entire task so it can be submitted as one commit.
+
 ## Contributor Notes
 
 - [ ] To fully complete the task you must make a commit to github branch `<branchName>`.
