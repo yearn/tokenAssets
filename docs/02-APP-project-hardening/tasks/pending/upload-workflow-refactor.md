@@ -6,19 +6,19 @@ Re-architect the upload route so the form state, preview generation, and PR revi
 
 ## Prerequisites
 
-- [ ] Read `docs/project-hardening/overview.md` and the existing implementation in `src/routes/upload.tsx`.
-- [ ] Confirm you can run dev tooling: `bun typecheck`, `bun build`, and `vercel dev` (optional for manual QA).
+- [x] Read `docs/project-hardening/overview.md` and the existing implementation in `src/routes/upload.tsx`.
+- [x] Confirm you can run dev tooling: `bun typecheck`, `bun build`, and `vercel dev` (optional for manual QA).
 
 ## Implementation Checklist
 
-1. [ ] Sketch a component tree separating form state (hook) from presentation components (`TokenAssetCard`, `ChainAssetCard`, `PreviewPanel`, `ReviewDialog`).
-2. [ ] Create a `useUploadForm` hook that owns shared state, validation, and PR metadata building. Ensure the hook exposes methods for adding/removing assets and triggering submission.
-3. [ ] Extract preview generation utilities into `src/lib/imagePreview.ts`, handling canvas cleanup and object URL revocation.
-4. [ ] Replace inline `fetchErc20Name` logic with shared helpers (to be implemented via `shared/erc20.ts` per companion task) and ensure async calls are cancellable (AbortController or TanStack Query).
-5. [ ] Update JSX to use the new components, remove direct DOM manipulations (`document.createElement`), and make file inputs controlled via refs.
-6. [ ] Rework `buildFormData` to operate on an explicit array of submission objects and use `Promise.all` to process PNG conversions concurrently.
-7. [ ] Ensure validation errors surface inline with accessible messaging and disable submission until requirements are met.
-8. [ ] Delete or reduce the legacy logic from `src/routes/upload.tsx` after migration, keeping the file focused on route wiring.
+1. [x] Sketch a component tree separating form state (hook) from presentation components (`TokenAssetCard`, `ChainAssetCard`, `PreviewPanel`, `ReviewDialog`).
+2. [x] Create a `useUploadForm` hook that owns shared state, validation, and PR metadata building. Ensure the hook exposes methods for adding/removing assets and triggering submission.
+3. [x] Extract preview generation utilities into `src/lib/imagePreview.ts`, handling canvas cleanup and object URL revocation.
+4. [x] Replace inline `fetchErc20Name` logic with shared helpers (to be implemented via `shared/erc20.ts` per companion task) and ensure async calls are cancellable (AbortController or TanStack Query).
+5. [x] Update JSX to use the new components, remove direct DOM manipulations (`document.createElement`), and make file inputs controlled via refs.
+6. [x] Rework `buildFormData` to operate on an explicit array of submission objects and use `Promise.all` to process PNG conversions concurrently.
+7. [x] Ensure validation errors surface inline with accessible messaging and disable submission until requirements are met.
+8. [x] Delete or reduce the legacy logic from `src/routes/upload.tsx` after migration, keeping the file focused on route wiring.
 
 ### Agent Context
 - Wave 3 task; begin after foundational and service-layer waves merge into the `project-hardening` integration branch.
@@ -28,9 +28,9 @@ Re-architect the upload route so the form state, preview generation, and PR revi
 
 ## Validation Checklist
 
-- [ ] `bun typecheck`
-- [ ] `bun lint` (alias for typecheck; keep in workflow)
-- [ ] `bun build`
+- [x] `bun typecheck`
+- [x] `bun lint` (alias for typecheck; keep in workflow)
+- [x] `bun build`
 - [ ] Manual smoke test in `vercel dev` or `bun dev`: token upload (with generated PNGs), manual PNG upload path, and chain mode.
 - [ ] Confirm generated PR metadata matches the new submission object ordering (inspect network request payload).
 
@@ -53,3 +53,9 @@ Re-architect the upload route so the form state, preview generation, and PR revi
 - How did you solve them.
 - Be concise and information dense. This section will probably be read by an AI agent of similar knowledge of the world and of this codebase as you.
 - What is important from your current context window that would be useful to save?
+
+#### Notes
+
+- UI now composes `TokenAssetCard`, `ChainAssetCard`, `PreviewPanel`, and `ReviewDialog` from `src/components/upload/`; form state and submission logic live in `src/features/upload/useUploadForm`.
+- Shared helpers new to this wave: `src/lib/imagePreview.ts` (SVG→PNG rendering) and `src/shared/erc20.ts` (API+RPC lookup with cancellable fetches).
+- Outstanding validation: run `bun build` and a `vercel dev` smoke test to confirm PR metadata payloads align with the backend before closing this task.
