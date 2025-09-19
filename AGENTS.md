@@ -22,8 +22,7 @@ There are multiple different apps and elements in this repo. Please read careful
 - Image tools dev: `bun dev` in `app` (Vite on `http://localhost:5173`).
 - Image tools serverless preview: `vercel dev` in `app` (serves `/api/*`).
 - Image tools build/preview: `bun build` then `bun preview` in `app`.
-- Image tools lint/typecheck/tests: `bun lint`, `bun typecheck`, `bun test` (or `bun run validate` for all three).
-- Ingest assets: `node scripts/ingestTokens.js ./scripts/tokensToInjest.json` — copies/renames prepared images into `tokens/`.
+- Image tools lint/typecheck/tests: `bun lint`, `bun typecheck`, `bun run test` (Vitest) — use `bun run validate` to run all three. (`bun test` invokes Bun's experimental runner and will fail on our Vitest helpers.)
 
 ## Coding Style & Naming Conventions
 
