@@ -1,4 +1,4 @@
-import React, {Fragment, useEffect, useMemo, useState} from 'react';
+import React, {Fragment, useEffect, useMemo, useRef, useState} from 'react';
 import {createRoute} from '@tanstack/react-router';
 import {rootRoute} from '../router';
 import {API_BASE_URL, buildApiUrl} from '../lib/api';
@@ -20,6 +20,11 @@ type TokenItem = {
 	addressValid?: boolean;
 };
 
+const isLookupAbort = (err: unknown): boolean => {
+	const name = (err as any)?.name;
+	return name === 'AbortError' || name === 'CanceledError';
+};
+
 export const UploadComponent: React.FC = () => {
 	const [token, setToken] = useState<string | null>(() => readStoredToken());
 	const [mode, setMode] = useState<'token' | 'chain'>('token');
@@ -38,6 +43,7 @@ export const UploadComponent: React.FC = () => {
 	const [prTitle, setPrTitle] = useState('');
 	const [prBody, setPrBody] = useState('');
 	const [submitting, setSubmitting] = useState(false);
+	const lookupControllersRef = useRef<Map<string, AbortController>>(new Map());
 
 	const canSubmit = useMemo(() => {
 		if (mode === 'chain') {
@@ -55,6 +61,13 @@ export const UploadComponent: React.FC = () => {
 	}, [chainId, mode, chainFiles, tokenItems, chainGenPng]);
 
 	useEffect(() => {
+		return () => {
+			lookupControllersRef.current.forEach(ctrl => ctrl.abort());
+			lookupControllersRef.current.clear();
+		};
+	}, []);
+
+	useEffect(() => {
 		if (typeof window === 'undefined') return;
 		const update = () => setToken(readStoredToken());
 		const handler = (event: StorageEvent) => {
@@ -69,46 +82,106 @@ export const UploadComponent: React.FC = () => {
 		};
 	}, []);
 
-	// ---- Helpers: Token name lookup via JSON-RPC ----
-	async function fetchErc20Name(chainIdStr: string, address: string): Promise<string> {
-		const cid = Number(chainIdStr);
-		if (!cid || Number.isNaN(cid)) throw new Error('Invalid chain');
-		// Prefer server endpoint to avoid CORS and centralize env
-		try {
-			const url = buildApiUrl('/api/erc20-name', API_BASE_URL);
-			const res = await fetch(url, {
-				method: 'POST',
-				headers: {'Content-Type': 'application/json'},
-				body: JSON.stringify({chainId: cid, address})
-			});
-			if (!res.ok) throw new Error(await res.text());
-			const j = await res.json();
-			if (j?.name) return j.name as string;
-		} catch (e) {
-			// fall through to direct RPC attempt
-		}
-		const rpc = getRpcUrl(cid);
-		if (!rpc) throw new Error('No RPC configured for this chain');
-		const data = '0x06fdde03';
-		const payload = {
-			jsonrpc: '2.0',
-			id: Math.floor(Math.random() * 1e9),
-			method: 'eth_call',
-			params: [{to: address, data}, 'latest']
+// ---- Helpers: Token name lookup via JSON-RPC ----
+async function fetchErc20Name(
+	chainIdStr: string,
+	address: string
+): Promise<{name: string; cacheHit: boolean; source: 'api' | 'api-cache' | 'rpc'}> {
+	const cid = Number(chainIdStr);
+	if (!cid || Number.isNaN(cid)) throw new Error('Invalid chain');
+	const normalizedAddress = address.trim();
+	const lookupKey = `${cid}:${normalizedAddress.toLowerCase()}`;
+	const existing = lookupControllersRef.current.get(lookupKey);
+	if (existing) existing.abort();
+	const controller = new AbortController();
+	lookupControllersRef.current.set(lookupKey, controller);
+	const {signal} = controller;
+	const cleanup = () => {
+		const active = lookupControllersRef.current.get(lookupKey);
+		if (active === controller) lookupControllersRef.current.delete(lookupKey);
+	};
+
+		const buildError = (message: string, code?: string) => {
+			const error = new Error(message);
+			error.name = 'LookupError';
+			if (code) (error as any).code = code;
+			return error;
 		};
-		const res = await fetch(rpc, {
+
+	let fallbackError: Error | undefined;
+	try {
+		const url = buildApiUrl('/api/erc20-name', API_BASE_URL);
+		const apiResponse = await fetch(url, {
 			method: 'POST',
 			headers: {'Content-Type': 'application/json'},
-			body: JSON.stringify(payload)
+			body: JSON.stringify({chainId: cid, address: normalizedAddress}),
+			signal
 		});
-		if (!res.ok) throw new Error(`RPC ${res.status}`);
-		const json = await res.json();
-		if (json?.error) throw new Error(json.error?.message || 'RPC error');
-		const result: string | undefined = json?.result;
-		if (!result || result === '0x') throw new Error('Empty result');
-		return decodeAbiString(result);
-	}
+		const payload = await apiResponse.json().catch(async () => {
+			const text = await apiResponse.text().catch(() => '');
+			throw buildError(text || `Lookup failed with HTTP ${apiResponse.status}`);
+		});
+		if (!apiResponse.ok) {
+			const apiError = payload?.error;
+			const message = apiError?.message || `Lookup failed with HTTP ${apiResponse.status}`;
+			const err = buildError(message, apiError?.code);
+			if (apiResponse.status >= 500) fallbackError = err;
+			throw err;
+		}
+		if (payload?.error) {
+			throw buildError(payload.error?.message || 'Lookup failed', payload.error?.code);
+		}
+		if (typeof payload?.name === 'string') {
+			const cacheHit = Boolean(payload?.cache?.hit);
+			cleanup();
+			return {name: payload.name as string, cacheHit, source: cacheHit ? 'api-cache' : 'api'};
+		}
+		throw buildError('Unexpected response from lookup API');
+		} catch (err) {
+			if (isLookupAbort(err)) {
+				cleanup();
+				throw err;
+			}
+			fallbackError = fallbackError || (err instanceof Error ? err : buildError(String(err)));
+		}
 
+	try {
+		if (signal.aborted) throw buildError('Lookup cancelled');
+		const rpc = getRpcUrl(cid);
+		if (!rpc) throw buildError('No RPC configured for this chain', 'RPC_NOT_CONFIGURED');
+		const rpcResponse = await fetch(rpc, {
+			method: 'POST',
+			headers: {'Content-Type': 'application/json'},
+			body: JSON.stringify({
+				jsonrpc: '2.0',
+				id: Math.floor(Math.random() * 1e9),
+				method: 'eth_call',
+				params: [{to: normalizedAddress, data: '0x06fdde03'}, 'latest']
+			}),
+			signal
+		});
+			if (!rpcResponse.ok) {
+				const err = buildError(`RPC HTTP ${rpcResponse.status}`);
+				if (fallbackError) err.message = `${err.message} (API fallback failed: ${fallbackError.message})`;
+				throw err;
+			}
+		const rpcJson = await rpcResponse.json();
+		if (rpcJson?.error) throw buildError(rpcJson.error?.message || 'RPC error');
+		const result: string | undefined = rpcJson?.result;
+		if (!result || result === '0x') throw buildError('Contract returned empty result');
+		const decoded = decodeAbiString(result);
+		if (!decoded.trim()) throw buildError('Contract returned empty result');
+		cleanup();
+		return {name: decoded, cacheHit: false, source: 'rpc'};
+		} catch (err) {
+			cleanup();
+			if (isLookupAbort(err)) throw err;
+			if (err instanceof Error && fallbackError) {
+				err.message = `${err.message} (API fallback failed: ${fallbackError.message})`;
+			}
+			throw err;
+		}
+}
 	const onChainFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const f = e.target.files?.[0];
 		if (!f) return;
@@ -396,22 +469,24 @@ export const UploadComponent: React.FC = () => {
 												{...prev[0], resolvingName: true, resolveError: ''},
 												...prev.slice(1)
 											]);
-											const name = await fetchErc20Name(String(cid), it.address);
+											const result = await fetchErc20Name(String(cid), it.address);
 											setTokenItems(prev => [
 												{
 													...prev[0],
 													resolvingName: false,
-													name: prev[0].name || name,
+													name: prev[0].name || result.name,
 													resolveError: ''
 												},
 												...prev.slice(1)
 											]);
 										} catch (err: any) {
+											if (isLookupAbort(err)) return;
+											const message = err instanceof Error ? err.message : 'Could not fetch token name. Please verify address.';
 											setTokenItems(prev => [
 												{
 													...prev[0],
 													resolvingName: false,
-													resolveError: 'Could not fetch token name. Please verify address.'
+													resolveError: message || 'Could not fetch token name. Please verify address.'
 												},
 												...prev.slice(1)
 											]);
@@ -465,27 +540,28 @@ export const UploadComponent: React.FC = () => {
 													{...prev[0], resolvingName: true, resolveError: ''},
 													...prev.slice(1)
 												]);
-												const name = await fetchErc20Name(String(cid), it.address);
-												setTokenItems(prev => [
-													{
-														...prev[0],
-														resolvingName: false,
-														name: prev[0].name || name,
-														resolveError: ''
-													},
-													...prev.slice(1)
-												]);
-											} catch (err: any) {
-												setTokenItems(prev => [
-													{
-														...prev[0],
-														resolvingName: false,
-														resolveError:
-															'Could not fetch token name. Please verify address.'
-													},
-													...prev.slice(1)
-												]);
-											}
+											const result = await fetchErc20Name(String(cid), it.address);
+											setTokenItems(prev => [
+												{
+													...prev[0],
+													resolvingName: false,
+													name: prev[0].name || result.name,
+													resolveError: ''
+												},
+												...prev.slice(1)
+											]);
+										} catch (err: any) {
+											if (isLookupAbort(err)) return;
+											const message = err instanceof Error ? err.message : 'Could not fetch token name. Please verify address.';
+											setTokenItems(prev => [
+												{
+													...prev[0],
+													resolvingName: false,
+													resolveError: message || 'Could not fetch token name. Please verify address.'
+												},
+												...prev.slice(1)
+											]);
+										}
 										}}
 										placeholder="0x..."
 									/>
@@ -764,30 +840,31 @@ export const UploadComponent: React.FC = () => {
 															: x
 													)
 												);
-												const name = await fetchErc20Name(String(cid), item.address);
-												setTokenItems(prev =>
-													prev.map((x, i) =>
-														i === idx + 1
-															? {
-																	...x,
+											const result = await fetchErc20Name(String(cid), item.address);
+											setTokenItems(prev =>
+												prev.map((x, i) =>
+													i === idx + 1
+														? {
+															...x,
 																	resolvingName: false,
-																	name: x.name || name,
+																	name: x.name || result.name,
 																	resolveError: ''
 															  }
 															: x
 													)
 												);
 											} catch (err: any) {
+												if (isLookupAbort(err)) return;
+												const message = err instanceof Error ? err.message : 'Could not fetch token name. Please verify address.';
 												setTokenItems(prev =>
 													prev.map((x, i) =>
 														i === idx + 1
-															? {
-																	...x,
-																	resolvingName: false,
-																	resolveError:
-																		'Could not fetch token name. Please verify address.'
-															  }
-															: x
+														? {
+															...x,
+															resolvingName: false,
+															resolveError: message || 'Could not fetch token name. Please verify address.'
+														  }
+														: x
 													)
 												);
 											}
@@ -826,30 +903,31 @@ export const UploadComponent: React.FC = () => {
 															: x
 													)
 												);
-												const name = await fetchErc20Name(String(cid), item.address);
+												const result = await fetchErc20Name(String(cid), item.address);
 												setTokenItems(prev =>
 													prev.map((x, i) =>
 														i === idx + 1
 															? {
 																	...x,
 																	resolvingName: false,
-																	name: x.name || name,
+																	name: x.name || result.name,
 																	resolveError: ''
 															  }
 															: x
 													)
 												);
 											} catch (err: any) {
+												if (isLookupAbort(err)) return;
+												const message = err instanceof Error ? err.message : 'Could not fetch token name. Please verify address.';
 												setTokenItems(prev =>
 													prev.map((x, i) =>
 														i === idx + 1
-															? {
-																	...x,
-																	resolvingName: false,
-																	resolveError:
-																		'Could not fetch token name. Please verify address.'
-															  }
-															: x
+														? {
+															...x,
+															resolvingName: false,
+															resolveError: message || 'Could not fetch token name. Please verify address.'
+														  }
+														: x
 													)
 												);
 											}

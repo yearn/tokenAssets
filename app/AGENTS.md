@@ -4,7 +4,8 @@
 
 - Assets: `tokens/<chainId>/<address>/` with `logo.svg`, `logo-32.png`, `logo-128.png`.
 - Chains: `chains/<chainId>/` (numeric `chainId`).
-- Image Upload App: `app/`.
+- Image Upload App: `app/` (SPA + Vercel edge functions).
+- Shared helpers: `app/src/shared/` (import via `@shared/*` from both SPA and edge code).
 - Automation: `scripts/` (e.g., `ingestTokens.js`; inputs in `scripts/token-images-to-ingest/`).
 - Root configs: `.editorconfig`, `.prettierrc`, `package.json`.
 
@@ -13,7 +14,9 @@
 - SPA dev: `bun dev` in `app` (Vite on `http://localhost:5173`).
 - Vercel dev: `vercel dev` in `app` (serves API under `/api/*`).
 - Build/preview: `bun build` then `bun preview`.
-- Lint/typecheck/tests: `bun lint`, `bun typecheck`, `bun test` (or `bun run validate`).
+- Type/lint: `bun run lint` or `bun run typecheck` (TS only).
+- Tests: `bun run test` (Vitest, single-threaded; covers `@shared` helpers plus `/api/erc20-name`).
+- Full sweep: `bun run validate` (`lint → typecheck → test`).
 - Ingest assets: `node scripts/ingestTokens.js ./scripts/tokensToInjest.json` — copies prepared images into `tokens/`.
 
 ## Coding Style & Naming Conventions
@@ -26,12 +29,13 @@
 
 ## Testing Guidelines
 
-- Run unit tests with `bun test` (vitest, jsdom environment).
-- Validate via Vercel dev for end-to-end flows:
+- Unit tests: `bun run test` covers shared helpers (ABI decode, RPC selection, API base builders) and the `/api/erc20-name` edge handler (caching, error codes, timeout).
+- Integration smoke: run `vercel dev` and validate:
   - OAuth callback: `/api/auth/github/callback` returns to `/auth/github/success`.
   - ERC-20 name lookup: POST `/api/erc20-name` (Edge).
   - Upload + PR: POST `/api/upload` (Edge) and confirm PR URL.
 - Ensure PNGs are exactly 32×32 and 128×128; keep SVGs optimized.
+- Configure ERC-20 lookup caching/timeouts via `ERC20_NAME_CACHE_TTL_MS`, `ERC20_NAME_CACHE_SIZE`, `ERC20_NAME_RPC_TIMEOUT_MS` when deploying edge functions.
 
 ## Commit & Pull Request Guidelines
 

@@ -17,14 +17,17 @@ export default defineConfig({
 		port: 5173
 	},
 	test: {
-		environment: 'jsdom',
-		globals: true,
-		setupFiles: ['./src/test/setup.ts'],
 		coverage: {
 			reporter: ['text', 'html'],
-			include: ['src/shared/**/*.ts', 'src/lib/**/*.ts']
+			include: ['src/shared/**/*.ts', 'api/**/*.ts']
 		},
-		include: [...configDefaults.include, 'src/shared/**/*.test.ts'],
-		exclude: [...configDefaults.exclude, 'src/test/helpers/**']
+		environment: 'node',
+		threads: false,
+		poolOptions: {
+			threads: {
+				singleThread: true
+			}
+		},
+		include: [...configDefaults.include, 'src/shared/**/*.test.ts', 'api/**/*.test.ts']
 	}
 });
