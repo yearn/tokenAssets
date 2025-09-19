@@ -301,7 +301,7 @@ export const UploadComponent: React.FC = () => {
 		if (!token) return alert('Sign in with GitHub first.');
 		setSubmitting(true);
 		try {
-			const reqUrl = new URL('/api/upload', API_BASE_URL).toString();
+			const reqUrl = buildApiUrl('/api/upload', API_BASE_URL);
 			const form = await buildFormData({title: prTitle, body: prBody});
 			const res = await fetch(reqUrl, {method: 'POST', headers: {Authorization: `Bearer ${token}`}, body: form});
 			if (!res.ok) {

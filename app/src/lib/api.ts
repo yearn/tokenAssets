@@ -1,4 +1,4 @@
-import {apiFetch as sharedApiFetch, buildApiUrl, getApiBaseUrl} from '@shared/api';
+import {buildApiUrl, getApiBaseUrl, apiFetch as sharedApiFetch} from '@shared/api';
 
 export const API_BASE_URL = getApiBaseUrl();
 
