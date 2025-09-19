@@ -21,6 +21,7 @@ Re-architect the upload route so the form state, preview generation, and PR revi
 8. [x] Delete or reduce the legacy logic from `src/routes/upload.tsx` after migration, keeping the file focused on route wiring.
 
 ### Agent Context
+
 - Wave 3 task; begin after foundational and service-layer waves merge into the `project-hardening` integration branch.
 - Import shared helpers from `src/shared/evm` (`isEvmAddress`, `decodeAbiString`) and `src/shared/image` (`generatePngPreviews`, `assertDimensions`).
 - Expect `/api/upload` to return structured errors (`{ error: string, details?: string[] }`) and `/api/erc20-name` to surface cache metadata; update client handling accordingly.
@@ -59,3 +60,109 @@ Re-architect the upload route so the form state, preview generation, and PR revi
 - UI now composes `TokenAssetCard`, `ChainAssetCard`, `PreviewPanel`, and `ReviewDialog` from `src/components/upload/`; form state and submission logic live in `src/features/upload/useUploadForm`.
 - Shared helpers new to this wave: `src/lib/imagePreview.ts` (SVG→PNG rendering) and `src/shared/erc20.ts` (API+RPC lookup with cancellable fetches).
 - Outstanding validation: run `bun build` and a `vercel dev` smoke test to confirm PR metadata payloads align with the backend before closing this task.
+
+---
+
+## Claude Technical Review Report
+
+### Summary
+
+The upload workflow refactor (commit `57286d4b`) successfully achieves the goal of re-architecting the upload route into modular, testable components. The implementation shows significant improvement in code organization, separation of concerns, and maintainability.
+
+### Architecture Analysis
+
+**Component Separation**: ✅ **Excellent**
+
+- Successfully extracted 4 distinct presentation components: `TokenAssetCard`, `ChainAssetCard`, `PreviewPanel`, `ReviewDialog`
+- Clear separation of concerns with each component handling its specific domain
+- Props interface is well-defined and minimal
+
+**State Management**: ✅ **Strong**
+
+- `useUploadForm` hook centralizes all form state and business logic (632 lines)
+- Eliminates direct DOM manipulation from original implementation
+- Uses proper React patterns with useCallback and useRef for performance
+
+**Code Reduction**: ✅ **Significant**
+
+- Main route file reduced from 1,195 to 211 lines (82% reduction)
+- Logic distribution across multiple focused modules improves readability
+
+### Implementation Quality
+
+**Type Safety**: ✅ **Robust**
+
+- Comprehensive TypeScript types in `features/upload/types.ts`
+- Proper type definitions for `FileTriplet`, `PreviewTriplet`, `TokenDraft`, etc.
+- Strong typing throughout the component hierarchy
+
+**Memory Management**: ✅ **Well-handled**
+
+- Proper cleanup of object URLs using refs and useEffect cleanup
+- Dedicated URL tracking in `previewUrls.current` Set
+- AbortController pattern for cancellable fetch operations
+
+**Error Handling**: ✅ **Comprehensive**
+
+- Custom `Erc20LookupError` class with specific error codes
+- Graceful fallback from API to RPC for ERC-20 name lookups
+- Abort signal handling for cancellation scenarios
+
+**Async Operations**: ✅ **Modern patterns**
+
+- Promise.all for concurrent PNG generation
+- Proper signal propagation for request cancellation
+- Error boundary considerations for async operations
+
+### Module Analysis
+
+**`src/lib/imagePreview.ts`**: ✅ **Clean utility module**
+
+- Focused responsibility for SVG→PNG conversion
+- Proper canvas cleanup and memory management
+- Good error handling for image loading failures
+
+**`src/shared/erc20.ts`**: ✅ **Well-architected service**
+
+- Multi-tier lookup strategy (API → RPC fallback)
+- Proper error classification and abort handling
+- Cache-aware result reporting
+
+**`src/features/upload/useUploadForm.ts`**: ✅ **Comprehensive hook**
+
+- Manages complex state transitions cleanly
+- Good separation of token vs chain logic
+- Proper cleanup in useEffect
+
+### Validation Results
+
+**Build System**: ✅ **Passing**
+
+- TypeScript compilation: ✅ Clean
+- Vite build: ✅ Successful (343KB bundle)
+- ESLint: ⚠️ TypeScript version warning only (non-blocking)
+
+**Configuration**: ✅ **Properly configured**
+
+- `@shared` alias correctly set up in both vite.config.ts and tsconfig.json
+- All shared modules present and properly exported
+
+### Areas of Excellence
+
+1. **Resource Management**: Excellent handling of object URLs and abort controllers
+2. **Code Organization**: Clear module boundaries and logical grouping
+3. **Type Safety**: Comprehensive TypeScript usage throughout
+4. **Performance**: Concurrent operations and proper cleanup patterns
+5. **Maintainability**: Focused, single-responsibility components
+
+### Minor Observations
+
+1. **ESLint Warning**: TypeScript 5.9.2 vs officially supported <5.6.0 (non-critical)
+2. **Test Coverage**: Manual testing still required for full validation
+3. **Error Boundaries**: Consider React error boundaries for async failures
+
+### Conclusion
+
+This refactor represents a high-quality implementation that fully satisfies all requirements in the task checklist. The code demonstrates solid understanding of React patterns, TypeScript best practices, and modern web development principles. The modular architecture will significantly improve maintainability and testability of the upload workflow.
+
+**Overall Grade**: ✅ **Excellent** - Ready for merge after manual smoke testing.
