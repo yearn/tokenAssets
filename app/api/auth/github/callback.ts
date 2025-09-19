@@ -1,7 +1,7 @@
 import {resolveAppBaseUrl} from '@shared/api';
 import {readEnv} from '@shared/env';
 
-export const config = { runtime: 'edge' };
+export const config = { runtime: 'nodejs' };
 
 export default async function (req: Request): Promise<Response> {
 	try {

@@ -1,7 +1,7 @@
 import {decodeAbiString, getRpcUrl, isEvmAddress} from '@shared/evm';
 import {readEnv} from '@shared/env';
 
-export const config = { runtime: 'edge' };
+export const config = { runtime: 'nodejs' };
 
 const JSON_HEADERS = {'Content-Type': 'application/json'} as const;
 const CACHE_TTL_MS = normalizePositiveInt(readEnv('ERC20_NAME_CACHE_TTL_MS'), 5 * 60 * 1000);
