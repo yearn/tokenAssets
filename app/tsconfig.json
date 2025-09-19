@@ -17,11 +17,7 @@
 		"types": ["vitest/globals"],
 		"baseUrl": ".",
 		"paths": {
-			"@shared/*": ["src/shared/*"],
-			"@shared/api": ["src/shared/api.ts"],
-			"@shared/env": ["src/shared/env.ts"],
-			"@shared/evm": ["src/shared/evm.ts"],
-			"@shared/image": ["src/shared/image.ts"]
+			"@shared/*": ["src/shared/*"]
 		}
 	},
 	"include": ["src", "api"]

@@ -10,11 +10,7 @@ export default defineConfig({
 	plugins: [react()],
 	resolve: {
 		alias: {
-			'@shared': resolvePath(rootDir, 'src/shared'),
-			'@shared/api': resolvePath(rootDir, 'src/shared/api.ts'),
-			'@shared/env': resolvePath(rootDir, 'src/shared/env.ts'),
-			'@shared/evm': resolvePath(rootDir, 'src/shared/evm.ts'),
-			'@shared/image': resolvePath(rootDir, 'src/shared/image.ts')
+			'@shared': resolvePath(rootDir, 'src/shared')
 		}
 	},
 	server: {
