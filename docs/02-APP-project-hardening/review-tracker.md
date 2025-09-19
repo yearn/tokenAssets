@@ -1,6 +1,6 @@
 # Project Hardening Review Tracker
 
-_Last updated: 2025-09-18_
+_Last updated: 2025-09-19_
 
 ## Integration Branch
 
@@ -13,18 +13,17 @@ _Last updated: 2025-09-18_
 | Task | Branch | Worktree | Agent | MCP `conversationId` | Status |
 | --- | --- | --- | --- | --- | --- |
 | ERC-20 Name Lookup Enhancements | task/erc20-name-lookup | /home/ross/code/yearn/tokenAssets/worktrees/task-erc20-name-lookup | Codex Task Agent | N/A | In progress |
-| Shared Utilities Alignment | task/shared-utilities-alignment | /home/ross/code/yearn/tokenAssets/worktrees/task-shared-utilities-alignment | Codex Task Agent | N/A | In progress |
 
 ## Next Task Recommendation
 
-- Prioritise `Upload API Hardening` (task/upload-api-hardening) next. Shared helpers from Wave 1 are merged; coordinate with the ERC-20 agent on cache response shape before starting.
-- Keep `Upload Workflow Refactor` and `Auth Flow Hardening` queued for Wave 3 once the API contracts stabilise.
+- Prioritise `Upload Workflow Refactor` (task/upload-workflow-refactor) for Wave 3 to layer the new API contracts into the UI.
+- Coordinate with the ERC-20 agent on any schema adjustments before starting `Auth Flow Hardening`.
 
 ## Pending Task Queue (from overview)
 
 - [x] Shared Utilities Alignment — feature: Shared Core (`docs/project-hardening/tasks/completed/shared/shared-utilities-alignment.md`)
 - [x] Developer Experience Upgrades — feature: Tooling (`docs/project-hardening/tasks/pending/tooling/developer-experience-upgrades.md`)
-- [ ] Upload API Hardening — feature: Upload Services (`docs/project-hardening/tasks/active/upload/upload-api-hardening.md`)
+- [x] Upload API Hardening — feature: Upload Services (`docs/project-hardening/tasks/active/upload/upload-api-hardening.md`)
 - [ ] Upload Workflow Refactor — feature: Upload UI (`docs/project-hardening/tasks/active/upload/upload-workflow-refactor.md`)
 - [ ] ERC-20 Name Lookup Enhancements — feature: API (`docs/project-hardening/tasks/pending/api/erc20-name-lookup.md`)
 - [ ] Auth Flow Hardening — feature: Authentication (`docs/project-hardening/tasks/pending/auth/auth-flow-hardening.md`)
@@ -33,6 +32,7 @@ _Last updated: 2025-09-18_
 
 - Shared Utilities Alignment — task/shared-utilities-alignment (merged into chore/project-hardening)
 - Developer Experience Upgrades — task/developer-experience-upgrades-manual (merged into chore/project-hardening)
+- Upload API Hardening — task/upload-api-hardening (merged into chore/project-hardening)
 
 ## Validation Expectations
 
