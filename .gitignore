@@ -1,5 +1,4 @@
-# Ignore scripts folder
-scripts/
+
 .DS_Store
 node_modules
 .vscode
@@ -14,9 +13,9 @@ _config/nodeAPI/public/137
 _config/nodeAPI/public/250
 _config/nodeAPI/public/8453
 _config/nodeAPI/public/42161
-app/image-tools/dist
-app/image-tools/dist/*
-app/image-tools/node_modules
+app/dist
+app/dist/*
+app/node_modules
 
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 # misc
