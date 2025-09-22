@@ -27,15 +27,12 @@ _Last updated: 2025-09-19_
 - [x] Developer Experience Upgrades — feature: Tooling (`docs/project-hardening/tasks/pending/tooling/developer-experience-upgrades.md`)
 - [x] Upload API Hardening — feature: Upload Services (`docs/project-hardening/tasks/active/upload/upload-api-hardening.md`)
 - [x] Upload Workflow Refactor — feature: Upload UI (`docs/project-hardening/tasks/active/upload/upload-workflow-refactor.md`)
-- [ ] ERC-20 Name Lookup Enhancements — feature: API (`docs/project-hardening/tasks/pending/api/erc20-name-lookup.md`)
-- [ ] Auth Flow Hardening — feature: Authentication (`docs/project-hardening/tasks/pending/auth/auth-flow-hardening.md`)
+- [x] ERC-20 Name Lookup Enhancements — feature: API (`docs/project-hardening/tasks/pending/api/erc20-name-lookup.md`)
+- [x] Auth Flow Hardening — feature: Authentication (`docs/project-hardening/tasks/pending/auth/auth-flow-hardening.md`)
 
 ## Completed Tasks
 
-- Shared Utilities Alignment — task/shared-utilities-alignment (merged into chore/project-hardening)
-- Developer Experience Upgrades — task/developer-experience-upgrades-manual (merged into chore/project-hardening)
-- Upload API Hardening — task/upload-api-hardening (merged into chore/project-hardening)
-- Upload Workflow Refactor — task/upload-workflow-refactor (merged into chore/project-hardening; manual UI validation tracked in task doc)
+All Tasks completed.
 
 ## Validation Expectations
 

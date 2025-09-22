@@ -44,7 +44,7 @@ Centralise reusable helpers (EVM utilities, API base URL logic) to minimise dupl
 
 ## Contributor Notes
 
-- [ ] To fully complete the task you must make a commit to github branch `project-hardening`.
+- [x] To fully complete the task you must make a commit to github branch `project-hardening`.
 
 ### Please leave any additional information that may be useful for future contributors below
 

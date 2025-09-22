@@ -370,3 +370,7 @@ Either prevents an incidental rewrite from bypassing `/api/auth/github/callback`
 - If it was an environment/config or rewrite issue, you’ll see `missing-env` or the callback will resolve correctly.
 
 If you want, I can also provide a very small Vitest file that unit-tests `getHeader(...)` against both `Headers` and Node-ish objects so this doesn’t regress again.
+
+## Final Resolution
+
+Fixed by changing the runtime in the API route to edge.

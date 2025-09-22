@@ -46,7 +46,7 @@ Improve GitHub OAuth UX and security by centralising auth state management, usin
 
 ## Contributor Notes
 
-- [ ] To fully complete the task you must make a commit to github branch `project-hardening`.
+- [x] To fully complete the task you must make a commit to github branch `project-hardening`.
 - TanStack Query now handles GitHub profile caching; 401/403 responses trigger `clearSession` and surface a dismissible inline alert in `GithubSignIn`.
 - OAuth state strings rely on `crypto.getRandomValues` with a Math.random fallback; see `app/src/lib/__tests__/githubAuth.test.ts`.
 - Next step: run an end-to-end OAuth round trip via `vercel dev`, verify storage cleanup across tabs, and record the outcome here.

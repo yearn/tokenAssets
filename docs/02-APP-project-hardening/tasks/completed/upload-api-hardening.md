@@ -46,7 +46,7 @@ Make `api/upload.ts` resilient by validating submissions deterministically, shar
 
 ## Contributor Notes
 
-- [ ] To fully complete the task you must make a commit to github branch `project-hardening`.
+- [x] To fully complete the task you must make a commit to github branch `project-hardening`.
 
 ### Please leave any additional information that may be useful for future contributors below
 
