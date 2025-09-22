@@ -1,6 +1,5 @@
-import React, { useEffect } from 'react';
-import { createRoute, useNavigate } from '@tanstack/react-router';
-import { rootRoute } from '../../router';
+import {createRoute, useNavigate} from '@tanstack/react-router';
+import React, {useEffect} from 'react';
 import {
 	broadcastAuthChange,
 	clearAuthError,
@@ -11,9 +10,10 @@ import {
 	storeAuthError,
 	storeAuthToken
 } from '../../lib/githubAuth';
+import {rootRoute} from '../../router';
 
 const GithubSuccessComponent: React.FC = () => {
-  const navigate = useNavigate();
+	const navigate = useNavigate();
 	useEffect(() => {
 		const params = new URLSearchParams(window.location.search);
 		const token = params.get('token');
@@ -44,11 +44,11 @@ const GithubSuccessComponent: React.FC = () => {
 		navigate({to: '/'});
 	}, [navigate]);
 
-  return <p>Signing you in…</p>;
+	return <p>Signing you in…</p>;
 };
 
 export const GithubSuccessRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/auth/github/success',
-  component: GithubSuccessComponent,
+	getParentRoute: () => rootRoute,
+	path: '/auth/github/success',
+	component: GithubSuccessComponent
 });

@@ -1,7 +1,7 @@
-import React, {useCallback, useRef} from 'react';
 import {Switch} from '@headlessui/react';
 import {isEvmAddress} from '@shared/evm';
-import {TokenDraft, FileKind} from '../../features/upload/types';
+import React, {useCallback, useRef} from 'react';
+import {FileKind, TokenDraft} from '../../features/upload/types';
 import {PreviewPanel} from './PreviewPanel';
 
 function classNames(...values: Array<string | false | null | undefined>): string {
@@ -50,7 +50,7 @@ export const TokenAssetCard: React.FC<TokenAssetCardProps> = ({
 	);
 
 	const handleSvgDrop = useCallback(
-		(event: React.DragEvent<HTMLDivElement>) => {
+		(event: React.DragEvent<HTMLElement>) => {
 			event.preventDefault();
 			const file = event.dataTransfer.files?.[0];
 			if (!file) return;
@@ -113,36 +113,26 @@ export const TokenAssetCard: React.FC<TokenAssetCardProps> = ({
 						onChange={event => onNameChange(event.target.value)}
 						placeholder="auto-fills if resolvable"
 					/>
-					{draft.resolvingName ? (
-						<p className="mt-1 text-xs text-gray-500">Fetching name…</p>
-					) : null}
-					{draft.resolveError ? (
-						<p className="mt-1 text-xs text-red-600">{draft.resolveError}</p>
-					) : null}
+					{draft.resolvingName ? <p className="mt-1 text-xs text-gray-500">Fetching name…</p> : null}
+					{draft.resolveError ? <p className="mt-1 text-xs text-red-600">{draft.resolveError}</p> : null}
 				</label>
 			</div>
 
-				<div className="mt-6 grid gap-4 sm:grid-cols-3">
-					<div className="sm:col-span-2">
-						<div
-							onClick={handleSvgBrowse}
-							onKeyDown={event => {
-								if (event.key === 'Enter' || event.key === ' ') {
-									event.preventDefault();
-									handleSvgBrowse();
-								}
-							}}
-							onDragOver={event => event.preventDefault()}
-							onDrop={handleSvgDrop}
-							role="button"
-							tabIndex={0}
-							className="flex h-40 w-full cursor-pointer items-center justify-center rounded-md border-2 border-dashed border-gray-300 bg-gray-50 text-sm text-gray-600">
+			<div className="mt-6 grid gap-4 sm:grid-cols-3">
+				<div className="sm:col-span-2">
+					<button
+						type="button"
+						onClick={handleSvgBrowse}
+						onDragOver={event => event.preventDefault()}
+						onDrop={handleSvgDrop}
+						className="flex h-40 w-full cursor-pointer items-center justify-center rounded-md border-2 border-dashed border-gray-300 bg-gray-50 text-sm text-gray-600"
+					>
 						{draft.preview.svg ? (
 							<img src={draft.preview.svg} alt="Token SVG preview" className="max-h-36" />
 						) : (
 							<span>Drag &amp; Drop SVG here</span>
 						)}
-					</div>
+					</button>
 					<input
 						type="file"
 						accept="image/svg+xml"
@@ -160,7 +150,8 @@ export const TokenAssetCard: React.FC<TokenAssetCardProps> = ({
 							className={classNames(
 								draft.genPng ? 'bg-blue-600' : 'bg-gray-200',
 								'relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2'
-							)}>
+							)}
+						>
 							<span
 								className={classNames(
 									draft.genPng ? 'translate-x-6' : 'translate-x-1',
@@ -172,7 +163,8 @@ export const TokenAssetCard: React.FC<TokenAssetCardProps> = ({
 					<button
 						type="button"
 						className="w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
-						onClick={handleSvgBrowse}>
+						onClick={handleSvgBrowse}
+					>
 						Browse SVG…
 					</button>
 					{!draft.genPng ? (

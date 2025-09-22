@@ -1,7 +1,7 @@
-import {fileURLToPath} from 'node:url';
 import {resolve as resolvePath} from 'node:path';
-import {defineConfig} from 'vite';
+import {fileURLToPath} from 'node:url';
 import react from '@vitejs/plugin-react';
+import {defineConfig} from 'vite';
 import {configDefaults} from 'vitest/config';
 
 const rootDir = fileURLToPath(new URL('.', import.meta.url));

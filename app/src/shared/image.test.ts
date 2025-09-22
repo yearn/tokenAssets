@@ -27,12 +27,15 @@ describe('assertDimensions', () => {
 	});
 
 	it('throws when dimensions are missing or invalid', () => {
-		expect(() => assertDimensions('token.png', null, {width: 1, height: 1})).toThrow('token.png must be a valid PNG file');
+		expect(() => assertDimensions('token.png', null, {width: 1, height: 1})).toThrow(
+			'token.png must be a valid PNG file'
+		);
 	});
 
 	it('throws when dimensions mismatch expected size', () => {
-		expect(() => assertDimensions('token.png', {width: 2, height: 2}, {width: 1, height: 1}))
-			.toThrow('token.png must be 1x1 (received 2x2)');
+		expect(() => assertDimensions('token.png', {width: 2, height: 2}, {width: 1, height: 1})).toThrow(
+			'token.png must be 1x1 (received 2x2)'
+		);
 	});
 });
 
@@ -40,8 +43,7 @@ describe('readPng', () => {
 	it('reads a Blob and returns bytes and dimensions', async () => {
 		const bytes = decodeBase64(PNG_1X1_BASE64);
 		const blob = {
-			arrayBuffer: async () =>
-				bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+			arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
 			type: 'image/png'
 		} as unknown as Blob;
 		const result = await readPng(blob);

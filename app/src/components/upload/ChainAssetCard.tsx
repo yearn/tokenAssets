@@ -1,5 +1,5 @@
-import React, {useCallback, useRef} from 'react';
 import {Switch} from '@headlessui/react';
+import React, {useCallback, useRef} from 'react';
 import {ChainDraft, FileKind} from '../../features/upload/types';
 import {PreviewPanel} from './PreviewPanel';
 
@@ -51,7 +51,7 @@ export const ChainAssetCard: React.FC<ChainAssetCardProps> = ({
 	);
 
 	const handleSvgDrop = useCallback(
-		(event: React.DragEvent<HTMLDivElement>) => {
+		(event: React.DragEvent<HTMLElement>) => {
 			event.preventDefault();
 			const dropped = event.dataTransfer.files?.[0];
 			if (!dropped) return;
@@ -82,25 +82,19 @@ export const ChainAssetCard: React.FC<ChainAssetCardProps> = ({
 
 			<div className="mt-6 grid gap-4 sm:grid-cols-3">
 				<div className="sm:col-span-2">
-					<div
+					<button
+						type="button"
 						onClick={handleSvgBrowse}
-						onKeyDown={event => {
-							if (event.key === 'Enter' || event.key === ' ') {
-								event.preventDefault();
-								handleSvgBrowse();
-							}
-						}}
 						onDragOver={event => event.preventDefault()}
 						onDrop={handleSvgDrop}
-						role="button"
-						tabIndex={0}
-						className="flex h-40 w-full cursor-pointer items-center justify-center rounded-md border-2 border-dashed border-gray-300 bg-gray-50 text-sm text-gray-600">
+						className="flex h-40 w-full cursor-pointer items-center justify-center rounded-md border-2 border-dashed border-gray-300 bg-gray-50 text-sm text-gray-600"
+					>
 						{draft.preview.svg ? (
 							<img src={draft.preview.svg} alt="Chain SVG preview" className="max-h-36" />
 						) : (
 							<span>Drag &amp; Drop SVG here</span>
 						)}
-					</div>
+					</button>
 					<input
 						type="file"
 						accept="image/svg+xml"
@@ -118,7 +112,8 @@ export const ChainAssetCard: React.FC<ChainAssetCardProps> = ({
 							className={classNames(
 								draft.genPng ? 'bg-blue-600' : 'bg-gray-200',
 								'relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2'
-							)}>
+							)}
+						>
 							<span
 								className={classNames(
 									draft.genPng ? 'translate-x-6' : 'translate-x-1',
@@ -130,7 +125,8 @@ export const ChainAssetCard: React.FC<ChainAssetCardProps> = ({
 					<button
 						type="button"
 						className="w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
-						onClick={handleSvgBrowse}>
+						onClick={handleSvgBrowse}
+					>
 						Browse SVG…
 					</button>
 					{!draft.genPng ? (

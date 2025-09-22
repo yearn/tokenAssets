@@ -1,12 +1,7 @@
 export const config = {runtime: 'edge'};
 
+import {UploadValidationError, buildDefaultPrMetadata, buildPrFiles, parseUploadForm} from './_lib/upload';
 import {getUserLogin, openPrWithFilesForkAware} from './github';
-import {
-	UploadValidationError,
-	buildDefaultPrMetadata,
-	buildPrFiles,
-	parseUploadForm
-} from './_lib/upload';
 
 function readEnv(key: string): string | undefined {
 	if (typeof process !== 'undefined' && process.env) {
@@ -59,7 +54,10 @@ function resolveTargetRepo(): TargetRepo {
 		const envRepoLower = envRepo.toLowerCase();
 		const vercelOwnerLower = vercelOwner?.toLowerCase();
 		const vercelRepoLower = vercelRepo?.toLowerCase();
-		const isSelfDeploy = Boolean(vercelOwnerLower && vercelRepoLower) && envOwnerLower === vercelOwnerLower && envRepoLower === vercelRepoLower;
+		const isSelfDeploy =
+			Boolean(vercelOwnerLower && vercelRepoLower) &&
+			envOwnerLower === vercelOwnerLower &&
+			envRepoLower === vercelRepoLower;
 		if (allowOverride || !isSelfDeploy) {
 			owner = envOwner;
 			repo = envRepo;

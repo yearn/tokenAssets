@@ -17,7 +17,7 @@ export class GithubClientError extends Error {
 	}
 }
 
-export async function fetchGithubProfile(token: string, options?: { signal?: AbortSignal }): Promise<GithubProfile> {
+export async function fetchGithubProfile(token: string, options?: {signal?: AbortSignal}): Promise<GithubProfile> {
 	const res = await fetch('/api/auth/github/me', {
 		headers: {
 			Authorization: `Bearer ${token}`,

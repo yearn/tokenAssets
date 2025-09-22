@@ -1,5 +1,5 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
-import {GithubClientError, fetchGithubProfile, PROFILE_QUERY_KEY} from '../github';
+import {GithubClientError, PROFILE_QUERY_KEY, fetchGithubProfile} from '../github';
 
 describe('fetchGithubProfile', () => {
 	const originalFetch = globalThis.fetch;
@@ -14,7 +14,12 @@ describe('fetchGithubProfile', () => {
 
 	it('returns a normalized profile payload', async () => {
 		const response = new Response(
-			JSON.stringify({login: 'octocat', name: 'The Octocat', avatar_url: 'octo.png', html_url: 'https://github.com/octocat'})
+			JSON.stringify({
+				login: 'octocat',
+				name: 'The Octocat',
+				avatar_url: 'octo.png',
+				html_url: 'https://github.com/octocat'
+			})
 		);
 		globalThis.fetch = vi.fn().mockResolvedValue(response);
 
@@ -27,7 +32,12 @@ describe('fetchGithubProfile', () => {
 			},
 			signal: undefined
 		});
-		expect(profile).toEqual({login: 'octocat', name: 'The Octocat', avatarUrl: 'octo.png', htmlUrl: 'https://github.com/octocat'});
+		expect(profile).toEqual({
+			login: 'octocat',
+			name: 'The Octocat',
+			avatarUrl: 'octo.png',
+			htmlUrl: 'https://github.com/octocat'
+		});
 	});
 
 	it('throws GithubClientError for 401 responses', async () => {

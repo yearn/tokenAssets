@@ -36,13 +36,10 @@ export function assertDimensions(
 	dimensions: PngDimensions | null,
 	expected: {width: number; height: number}
 ): void {
-	if (!dimensions)
-		throw new Error(`${label} must be a valid PNG file`);
+	if (!dimensions) throw new Error(`${label} must be a valid PNG file`);
 	const {width, height} = dimensions;
 	if (width !== expected.width || height !== expected.height) {
-		throw new Error(
-			`${label} must be ${expected.width}x${expected.height} (received ${width}x${height})`
-		);
+		throw new Error(`${label} must be ${expected.width}x${expected.height} (received ${width}x${height})`);
 	}
 }
 

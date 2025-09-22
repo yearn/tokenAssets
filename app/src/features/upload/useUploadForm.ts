@@ -1,17 +1,10 @@
+import {isLookupAbort, lookupErc20Name} from '@shared/erc20';
+import {isEvmAddress} from '@shared/evm';
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {buildApiUrl} from '../../lib/api';
-import {generatePngPreviews, makeObjectUrl} from '../../lib/imagePreview';
-import {lookupErc20Name, isLookupAbort} from '@shared/erc20';
-import {isEvmAddress} from '@shared/evm';
 import {listKnownChains} from '../../lib/chains';
-import {
-	ChainDraft,
-	ReviewMetadata,
-	SubmitResult,
-	TokenDraft,
-	UploadMode,
-	FileKind
-} from './types';
+import {generatePngPreviews, makeObjectUrl} from '../../lib/imagePreview';
+import {ChainDraft, FileKind, ReviewMetadata, SubmitResult, TokenDraft, UploadMode} from './types';
 
 const DEFAULT_REVIEW: ReviewMetadata = {title: '', body: ''};
 const KNOWN_CHAINS = listKnownChains();
@@ -144,12 +137,15 @@ export function useUploadForm(options?: HookOptions) {
 		[revokeUrl]
 	);
 
-	useEffect(() => () => {
-		lookupControllers.current.forEach(controller => controller.abort());
-		lookupControllers.current.clear();
-		previewUrls.current.forEach(url => URL.revokeObjectURL(url));
-		previewUrls.current.clear();
-	}, []);
+	useEffect(
+		() => () => {
+			lookupControllers.current.forEach(controller => controller.abort());
+			lookupControllers.current.clear();
+			previewUrls.current.forEach(url => URL.revokeObjectURL(url));
+			previewUrls.current.clear();
+		},
+		[]
+	);
 
 	const updateToken = useCallback((id: string, mutator: (draft: TokenDraft) => TokenDraft) => {
 		setTokens(prev => prev.map(token => (token.id === id ? mutator(token) : token)));
@@ -332,31 +328,31 @@ export function useUploadForm(options?: HookOptions) {
 					};
 				});
 
- 			const draft = chain;
- 			if (!draft.genPng) return;
- 			try {
- 				const result = await generatePngPreviews(actual, {baseName: actual.name});
- 				setChain(current => {
- 					if (current.files.svg !== actual || !current.genPng) return current;
- 					revokeUrl(current.preview.png32);
- 					revokeUrl(current.preview.png128);
- 					return {
- 						...current,
- 						generated: {
- 							...current.generated,
- 							png32: result.png32,
- 							png128: result.png128
- 						},
- 						preview: {
- 							...current.preview,
- 							png32: registerUrl(result.urls.png32),
- 							png128: registerUrl(result.urls.png128)
- 						}
- 					};
- 				});
- 			} catch (error) {
- 				console.error('Failed to generate chain PNG previews', error);
- 			}
+				const draft = chain;
+				if (!draft.genPng) return;
+				try {
+					const result = await generatePngPreviews(actual, {baseName: actual.name});
+					setChain(current => {
+						if (current.files.svg !== actual || !current.genPng) return current;
+						revokeUrl(current.preview.png32);
+						revokeUrl(current.preview.png128);
+						return {
+							...current,
+							generated: {
+								...current.generated,
+								png32: result.png32,
+								png128: result.png128
+							},
+							preview: {
+								...current.preview,
+								png32: registerUrl(result.urls.png32),
+								png128: registerUrl(result.urls.png128)
+							}
+						};
+					});
+				} catch (error) {
+					console.error('Failed to generate chain PNG previews', error);
+				}
 			} else {
 				setChain(current => {
 					revokeUrl(current.preview[kind]);

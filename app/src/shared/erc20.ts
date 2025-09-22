@@ -68,7 +68,10 @@ export async function lookupErc20Name(options: LookupOptions): Promise<Erc20Look
 			throw new Erc20LookupError(text || `Lookup failed with HTTP ${apiResponse.status}`, 'LOOKUP_FAILED');
 		});
 		if (!apiResponse.ok) {
-			const err = new Erc20LookupError(json?.error?.message || `Lookup failed with HTTP ${apiResponse.status}`, 'LOOKUP_FAILED');
+			const err = new Erc20LookupError(
+				json?.error?.message || `Lookup failed with HTTP ${apiResponse.status}`,
+				'LOOKUP_FAILED'
+			);
 			if (apiResponse.status >= 500) apiFallbackError = err;
 			throw err;
 		}

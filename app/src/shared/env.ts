@@ -16,15 +16,15 @@ const getSources = (() => {
 		if (cached) return cached;
 		const globalAny = globalThis as any;
 		cached = [
-			() => (globalAny?.process?.env as EnvRecord),
-			() => (globalAny?.Bun?.env as EnvRecord),
+			() => globalAny?.process?.env as EnvRecord,
+			() => globalAny?.Bun?.env as EnvRecord,
 			() => {
 				try {
 					return ((import.meta as any)?.env ?? undefined) as EnvRecord;
 				} catch (_) {
 					return undefined;
 				}
-			},
+			}
 		];
 		return cached;
 	};
