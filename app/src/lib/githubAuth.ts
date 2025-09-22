@@ -155,6 +155,6 @@ export function broadcastAuthChange() {
 	if (typeof window === 'undefined') return;
 	window.dispatchEvent(new Event(AUTH_CHANGE_EVENT));
 	try {
-		window.dispatchEvent(new StorageEvent('storage', { key: TOKEN_STORAGE_KEY }));
+		window.dispatchEvent(new StorageEvent('storage', {key: TOKEN_STORAGE_KEY}));
 	} catch {}
 }

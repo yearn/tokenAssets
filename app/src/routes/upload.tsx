@@ -1,12 +1,12 @@
-import React, {useEffect, useMemo, useState} from 'react';
 import {createRoute} from '@tanstack/react-router';
-import {rootRoute} from '../router';
+import React, {useEffect, useMemo, useState} from 'react';
 import {SegmentedToggle} from '../components/SegmentedToggle';
-import {AUTH_CHANGE_EVENT, TOKEN_STORAGE_KEY, readStoredToken} from '../lib/githubAuth';
-import {TokenAssetCard} from '../components/upload/TokenAssetCard';
 import {ChainAssetCard} from '../components/upload/ChainAssetCard';
 import {ReviewDialog} from '../components/upload/ReviewDialog';
+import {TokenAssetCard} from '../components/upload/TokenAssetCard';
 import {useUploadForm} from '../features/upload/useUploadForm';
+import {AUTH_CHANGE_EVENT, TOKEN_STORAGE_KEY, readStoredToken} from '../lib/githubAuth';
+import {rootRoute} from '../router';
 
 const CHAIN_LIST_ID = 'upload-chain-options';
 
@@ -77,7 +77,8 @@ export const UploadComponent: React.FC = () => {
 								<button
 									type="button"
 									className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
-									onClick={() => form.resetChainDraft()}>
+									onClick={() => form.resetChainDraft()}
+								>
 									Clear
 								</button>
 								<SegmentedToggle
@@ -106,7 +107,8 @@ export const UploadComponent: React.FC = () => {
 									<button
 										type="button"
 										className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
-										onClick={() => form.resetTokenDraft(primaryToken.id)}>
+										onClick={() => form.resetTokenDraft(primaryToken.id)}
+									>
 										Clear
 									</button>
 									<SegmentedToggle
@@ -139,13 +141,15 @@ export const UploadComponent: React.FC = () => {
 										<button
 											type="button"
 											className="text-sm text-gray-600 hover:underline"
-											onClick={() => form.resetTokenDraft(token.id)}>
+											onClick={() => form.resetTokenDraft(token.id)}
+										>
 											Clear
 										</button>
 										<button
 											type="button"
 											className="text-sm text-red-600 hover:underline"
-											onClick={() => form.removeToken(token.id)}>
+											onClick={() => form.removeToken(token.id)}
+										>
 											Remove
 										</button>
 									</>
@@ -165,7 +169,8 @@ export const UploadComponent: React.FC = () => {
 							<button
 								type="button"
 								className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
-								onClick={form.addToken}>
+								onClick={form.addToken}
+							>
 								+ Add Token Asset
 							</button>
 						</div>
@@ -177,7 +182,8 @@ export const UploadComponent: React.FC = () => {
 						type="submit"
 						disabled={!form.canSubmit || !authToken}
 						className="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-						title={!authToken ? 'Sign in with GitHub to enable submission' : undefined}>
+						title={!authToken ? 'Sign in with GitHub to enable submission' : undefined}
+					>
 						Submit PR
 					</button>
 				</div>

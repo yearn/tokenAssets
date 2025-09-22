@@ -1,14 +1,14 @@
-import {useCallback, useEffect, useMemo, useState} from 'react';
 import {useQuery, useQueryClient} from '@tanstack/react-query';
-import {GithubClientError, PROFILE_QUERY_KEY, fetchGithubProfile, type GithubProfile} from '../api/client/github';
+import {useCallback, useEffect, useMemo, useState} from 'react';
+import {GithubClientError, type GithubProfile, PROFILE_QUERY_KEY, fetchGithubProfile} from '../api/client/github';
 import {
 	AUTH_CHANGE_EVENT,
+	AUTH_ERROR_STORAGE_KEY,
 	AUTH_PENDING_STORAGE_KEY,
 	AUTH_STATE_STORAGE_KEY,
-	AUTH_ERROR_STORAGE_KEY,
 	TOKEN_STORAGE_KEY,
-	buildAuthorizeUrl,
 	broadcastAuthChange,
+	buildAuthorizeUrl,
 	clearAuthError,
 	clearAuthPending,
 	clearStoredAuth,

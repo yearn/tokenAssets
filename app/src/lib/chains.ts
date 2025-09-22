@@ -10,14 +10,14 @@ export const CHAIN_ID_TO_NAME: Record<number, string> = {
 	8453: 'Base',
 	42161: 'Arbitrum',
 	747474: 'Katana',
-	80094: 'Berachain',
+	80094: 'Berachain'
 };
 
 export const getRpcUrl = getSharedRpcUrl;
 
-export function listKnownChains(): Array<{ id: number; name: string }> {
+export function listKnownChains(): Array<{id: number; name: string}> {
 	return Object.entries(CHAIN_ID_TO_NAME)
-		.map(([id, name]) => ({ id: Number(id), name }))
+		.map(([id, name]) => ({id: Number(id), name}))
 		.sort((a, b) => a.id - b.id);
 }
 

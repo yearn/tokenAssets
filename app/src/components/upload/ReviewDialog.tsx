@@ -1,5 +1,5 @@
-import React, {Fragment} from 'react';
 import {Dialog, Transition} from '@headlessui/react';
+import React, {Fragment} from 'react';
 import {ReviewMetadata} from '../../features/upload/types';
 
 type ReviewDialogProps = {
@@ -30,7 +30,8 @@ export const ReviewDialog: React.FC<ReviewDialogProps> = ({
 				enterTo="opacity-100"
 				leave="ease-in duration-150"
 				leaveFrom="opacity-100"
-				leaveTo="opacity-0">
+				leaveTo="opacity-0"
+			>
 				<div className="fixed inset-0 bg-gray-500 bg-opacity-60 transition-opacity" />
 			</Transition.Child>
 
@@ -43,9 +44,12 @@ export const ReviewDialog: React.FC<ReviewDialogProps> = ({
 						enterTo="opacity-100 translate-y-0 sm:scale-100"
 						leave="ease-in duration-150"
 						leaveFrom="opacity-100 translate-y-0 sm:scale-100"
-						leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95">
+						leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+					>
 						<Dialog.Panel className="relative w-full max-w-2xl transform rounded-lg bg-white px-6 pb-6 pt-5 text-left shadow-xl transition-all">
-							<Dialog.Title className="text-lg font-medium text-gray-900">Review pull request details</Dialog.Title>
+							<Dialog.Title className="text-lg font-medium text-gray-900">
+								Review pull request details
+							</Dialog.Title>
 							<div className="mt-4 space-y-4">
 								<div>
 									<label className="block text-sm font-medium text-gray-700" htmlFor="pr-title">
@@ -81,14 +85,16 @@ export const ReviewDialog: React.FC<ReviewDialogProps> = ({
 									type="button"
 									className="w-full rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 sm:w-auto"
 									onClick={onClose}
-									disabled={submitting}>
+									disabled={submitting}
+								>
 									Cancel
 								</button>
 								<button
 									type="button"
 									className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
 									onClick={onConfirm}
-									disabled={submitting}>
+									disabled={submitting}
+								>
 									{submitting ? 'Submitting…' : 'Confirm & Submit'}
 								</button>
 							</div>

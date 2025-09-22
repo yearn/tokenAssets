@@ -1,5 +1,5 @@
 import React from 'react';
-import { GithubSignIn } from './GithubSignIn';
+import {GithubSignIn} from './GithubSignIn';
 
 export const Header: React.FC = () => (
 	<header className="border-b bg-white">
