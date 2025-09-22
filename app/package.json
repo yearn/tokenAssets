@@ -9,7 +9,7 @@
 		"lint": "biome lint .",
 		"lint:fix": "biome check --write .",
 		"test": "vitest run --pool threads --poolOptions threads.singleThread=true",
-		"test:watch": "vitest --pool threads --poolOptions threads.singleThread=true --watch",
+		"test:watch": "vitest --pool threads --pool.threads.singleThread=true --watch",
 		"build": "vite build",
 		"preview": "vite preview",
 		"validate": "bun run lint:fix && bun run typecheck && bun run test"
