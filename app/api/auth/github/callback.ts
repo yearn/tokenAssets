@@ -33,7 +33,35 @@ function normalizeBaseUrl(raw: string): string {
 	return /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
 }
 
-function resolveAppBase(req?: Request): {url: string; source: string} {
+function getHeader(req: any, key: string): string | undefined {
+	const headers = (req as any)?.headers;
+	if (!headers) return undefined;
+	const lower = key.toLowerCase();
+	if (typeof headers.get === 'function') {
+		const value = headers.get(key) ?? headers.get(lower);
+		return value ?? undefined;
+	}
+	const value = headers[key] ?? headers[lower];
+	if (Array.isArray(value)) return value[0];
+	return typeof value === 'string' ? value : undefined;
+}
+
+function getRequestUrl(req: any): URL {
+	const raw = (req as any)?.url;
+	if (typeof raw === 'string') {
+		try {
+			return new URL(raw);
+		} catch (_) {
+			// fall through to header-derived reconstruction
+		}
+	}
+	const host = getHeader(req, 'x-forwarded-host') || getHeader(req, 'host') || 'localhost:5173';
+	const proto = getHeader(req, 'x-forwarded-proto') || (host.includes('localhost') ? 'http' : 'https');
+	const path = typeof raw === 'string' && raw.startsWith('/') ? raw : '/api/auth/github/callback';
+	return new URL(`${proto}://${host}${path}`);
+}
+
+function resolveAppBase(req?: any): {url: string; source: string} {
 	const appBaseExplicit = readEnv('APP_BASE_URL');
 	if (appBaseExplicit && appBaseExplicit !== '/') return {url: appBaseExplicit, source: 'APP_BASE_URL'};
 
@@ -44,14 +72,10 @@ function resolveAppBase(req?: Request): {url: string; source: string} {
 	if (vercelUrl) return {url: normalizeBaseUrl(vercelUrl), source: 'VERCEL_URL'};
 
 	if (req) {
-		try {
-			const parsed = new URL(req.url);
-			if (parsed.origin && parsed.origin !== 'null') return {url: parsed.origin, source: 'request-url'};
-		} catch (_) {
-			// ignore parse failure
-		}
-		const host = req.headers.get('x-forwarded-host') || req.headers.get('host');
-		const proto = req.headers.get('x-forwarded-proto') || (host?.includes('localhost') ? 'http' : 'https');
+		const parsed = getRequestUrl(req);
+		if (parsed.origin && parsed.origin !== 'null') return {url: parsed.origin, source: 'request-url'};
+		const host = getHeader(req, 'x-forwarded-host') || getHeader(req, 'host');
+		const proto = getHeader(req, 'x-forwarded-proto') || (host?.includes('localhost') ? 'http' : 'https');
 		if (host) return {url: `${proto}://${host}`, source: 'request-headers'};
 	}
 
@@ -71,18 +95,10 @@ function buildErrorResponse(status: number, message: string, debugData?: Record<
 
 export const config = {runtime: 'nodejs'};
 
-export default async function (req: Request): Promise<Response> {
+export default async function (req: any): Promise<Response> {
 	const startedAt = Date.now();
-	const requestId = req.headers.get('x-request-id') || req.headers.get('x-vercel-id') || undefined;
-	let parsedUrl: URL;
-	try {
-		parsedUrl = new URL(req.url);
-	} catch (parseErr: any) {
-		logOAuth('invalid-request-url', {requestId, error: parseErr?.message || 'unable to parse'});
-		return buildErrorResponse(400, 'Invalid request URL', {
-			error: parseErr?.message || 'failed to parse request url'
-		});
-	}
+	const requestId = getHeader(req, 'x-request-id') || getHeader(req, 'x-vercel-id') || undefined;
+	const parsedUrl = getRequestUrl(req);
 	const code = parsedUrl.searchParams.get('code');
 	const state = parsedUrl.searchParams.get('state') || '';
 	const logContextBase = {
@@ -98,14 +114,11 @@ export default async function (req: Request): Promise<Response> {
 			return buildErrorResponse(400, 'Missing code');
 		}
 
-		const githubClientId = readEnv('GITHUB_CLIENT_ID');
-		const viteClientId = readEnv('VITE_GITHUB_CLIENT_ID');
-		const clientId = githubClientId ?? viteClientId;
-		const clientIdSource = githubClientId ? 'GITHUB_CLIENT_ID' : viteClientId ? 'VITE_GITHUB_CLIENT_ID' : null;
+		const clientId = readEnv('GITHUB_CLIENT_ID') || readEnv('VITE_GITHUB_CLIENT_ID');
 		const clientSecret = readEnv('GITHUB_CLIENT_SECRET');
 		logOAuth('env-evaluated', {
 			...logContextBase,
-			clientIdSource,
+			hasClientId: Boolean(clientId),
 			hasClientSecret: Boolean(clientSecret)
 		});
 		if (!clientId || !clientSecret) {
@@ -115,6 +128,9 @@ export default async function (req: Request): Promise<Response> {
 				hasClientSecret: !!clientSecret
 			});
 		}
+
+		const {url: appBase} = resolveAppBase(req);
+		const redirectUri = new URL('/api/auth/github/callback', appBase).toString();
 
 		const timeoutRaw = readEnv('GITHUB_OAUTH_TIMEOUT_MS');
 		const timeoutParsed = timeoutRaw ? Number(timeoutRaw) : NaN;
@@ -126,10 +142,19 @@ export default async function (req: Request): Promise<Response> {
 
 		let tokenRes: Response;
 		try {
+			const body = new URLSearchParams({
+				client_id: clientId,
+				client_secret: clientSecret,
+				code,
+				redirect_uri: redirectUri
+			});
 			tokenRes = await fetch('https://github.com/login/oauth/access_token', {
 				method: 'POST',
-				headers: {Accept: 'application/json', 'Content-Type': 'application/json'},
-				body: JSON.stringify({client_id: clientId, client_secret: clientSecret, code}),
+				headers: {
+					Accept: 'application/json',
+					'Content-Type': 'application/x-www-form-urlencoded'
+				},
+				body: body.toString(),
 				signal: controller.signal
 			});
 		} catch (fetchError: any) {
@@ -140,10 +165,7 @@ export default async function (req: Request): Promise<Response> {
 				durationMs: Date.now() - startedAt,
 				error: isAbort ? 'timeout' : fetchError?.message || 'fetch failed'
 			});
-			if (isAbort) {
-				return buildErrorResponse(504, 'GitHub token exchange timed out');
-			}
-			throw fetchError;
+			return buildErrorResponse(isAbort ? 504 : 502, isAbort ? 'GitHub token exchange timed out' : 'GitHub token exchange failed');
 		}
 		clearTimeout(timeoutId);
 		logOAuth('exchange-response', {

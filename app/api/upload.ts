@@ -18,6 +18,19 @@ type TargetRepo = {
 	allowOverride: boolean;
 };
 
+function getHeader(req: any, key: string): string | undefined {
+	const headers = (req as any)?.headers;
+	if (!headers) return undefined;
+	const lower = key.toLowerCase();
+	if (typeof headers.get === 'function') {
+		const value = headers.get(key) ?? headers.get(lower);
+		return value ?? undefined;
+	}
+	const value = headers[key] ?? headers[lower];
+	if (Array.isArray(value)) return value[0];
+	return typeof value === 'string' ? value : undefined;
+}
+
 function resolveTargetRepo(): TargetRepo {
 	const envOwner = (process.env.REPO_OWNER as string | undefined)?.trim();
 	const envRepo = (process.env.REPO_NAME as string | undefined)?.trim();
@@ -58,10 +71,10 @@ function jsonResponse(status: number, body: Record<string, unknown>): Response {
 	});
 }
 
-export default async function handler(req: Request): Promise<Response> {
+export default async function handler(req: any): Promise<Response> {
 	if (req.method !== 'POST') return new Response('Method Not Allowed', {status: 405});
 	try {
-		const auth = req.headers.get('authorization') || '';
+		const auth = getHeader(req, 'authorization') || '';
 		const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
 		if (!token) {
 			return jsonResponse(401, {error: 'Missing GitHub token', code: 'AUTH_REQUIRED'});
