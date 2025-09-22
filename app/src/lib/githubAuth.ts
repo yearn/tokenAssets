@@ -22,13 +22,20 @@ function buildRedirectUri(): string | undefined {
 }
 
 export function buildAuthorizeUrl(clientId: string, state: string) {
-	const url = new URL('https://github.com/login/oauth/authorize');
-	url.searchParams.set('client_id', clientId);
-	url.searchParams.set('state', state);
-	url.searchParams.set('scope', 'public_repo');
 	const redirectUri = buildRedirectUri();
-	if (redirectUri) url.searchParams.set('redirect_uri', redirectUri);
-	return url.toString();
+	let base: string | undefined;
+	if (redirectUri) {
+		base = new URL(redirectUri).origin;
+	} else if (typeof window !== 'undefined' && window.location?.origin) {
+		base = window.location.origin;
+	} else {
+		base = import.meta.env?.VITE_APP_BASE_URL || import.meta.env?.VITE_SITE_URL;
+	}
+	const baseUrl = (base || 'http://localhost:5173').replace(/\/$/, '');
+	const authorize = new URL('/api/auth/github/authorize', `${baseUrl}/`);
+	authorize.searchParams.set('state', state);
+	authorize.searchParams.set('client_id', clientId);
+	return authorize.toString();
 }
 
 export function createOAuthState(length = 32) {

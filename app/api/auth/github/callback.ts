@@ -21,6 +21,38 @@ function logOAuth(event: string, details?: Record<string, unknown>) {
 	console.info(`[oauth-callback] ${new Date().toISOString()} ${event}${payload ? ' ' + payload : ''}`);
 }
 
+const seenCodes = new Map<string, number>(); // code -> expiresAt
+const CODE_SEEN_TTL_MS = 2 * 60_000;
+
+function codeAlreadySeen(code: string): boolean {
+	const now = Date.now();
+	for (const [storedCode, expiresAt] of seenCodes) {
+		if (expiresAt <= now) {
+			seenCodes.delete(storedCode);
+		}
+	}
+	const expiresAt = seenCodes.get(code);
+	if (expiresAt && expiresAt > now) {
+		return true;
+	}
+	seenCodes.set(code, now + CODE_SEEN_TTL_MS);
+	return false;
+}
+
+let clientIdPrefixesLogged = false;
+function logClientIdPrefixesOnce() {
+	if (clientIdPrefixesLogged || !OAUTH_DEBUG) return;
+	const githubClientId = readEnv('GITHUB_CLIENT_ID');
+	const viteClientId = readEnv('VITE_GITHUB_CLIENT_ID');
+	if (!githubClientId && !viteClientId) return;
+	clientIdPrefixesLogged = true;
+	logOAuth('env-client-id-prefixes', {
+		githubClientIdPrefix: githubClientId ? githubClientId.slice(0, 6) : null,
+		viteGithubClientIdPrefix: viteClientId ? viteClientId.slice(0, 6) : null,
+		prefixesMatch: githubClientId && viteClientId ? githubClientId === viteClientId : null
+	});
+}
+
 function redactSecrets(raw?: string | null): string | undefined {
 	if (!raw) return undefined;
 	return raw
@@ -108,18 +140,36 @@ export default async function (req: any): Promise<Response> {
 		stateLength: state.length
 	};
 	logOAuth('start', logContextBase);
+	logClientIdPrefixesOnce();
 	try {
 		if (!code) {
 			logOAuth('missing-code', {...logContextBase, durationMs: Date.now() - startedAt});
 			return buildErrorResponse(400, 'Missing code');
 		}
 
-		const clientId = readEnv('GITHUB_CLIENT_ID') || readEnv('VITE_GITHUB_CLIENT_ID');
+		const codePrefix = code.slice(0, 8);
+		if (codeAlreadySeen(code)) {
+			logOAuth('duplicate-code', {
+				...logContextBase,
+				durationMs: Date.now() - startedAt,
+				codePrefix
+			});
+			return buildErrorResponse(400, 'OAuth code already used', {codePrefix});
+		}
+
+		const githubClientId = readEnv('GITHUB_CLIENT_ID');
+		const viteClientId = readEnv('VITE_GITHUB_CLIENT_ID');
+		const clientId = githubClientId || viteClientId;
+		const clientIdSource = githubClientId ? 'GITHUB_CLIENT_ID' : viteClientId ? 'VITE_GITHUB_CLIENT_ID' : 'missing';
 		const clientSecret = readEnv('GITHUB_CLIENT_SECRET');
 		logOAuth('env-evaluated', {
 			...logContextBase,
 			hasClientId: Boolean(clientId),
-			hasClientSecret: Boolean(clientSecret)
+			hasClientSecret: Boolean(clientSecret),
+			clientIdSource,
+			githubClientIdPrefix: githubClientId ? githubClientId.slice(0, 6) : null,
+			viteGithubClientIdPrefix: viteClientId ? viteClientId.slice(0, 6) : null,
+			clientIdsMatch: githubClientId && viteClientId ? githubClientId === viteClientId : null
 		});
 		if (!clientId || !clientSecret) {
 			logOAuth('missing-env', {...logContextBase, durationMs: Date.now() - startedAt});
@@ -138,7 +188,13 @@ export default async function (req: any): Promise<Response> {
 
 		const controller = new AbortController();
 		const timeoutId = setTimeout(() => controller.abort(), tokenExchangeTimeoutMs);
-		logOAuth('exchange-start', {...logContextBase, timeoutMs: tokenExchangeTimeoutMs, redirectUri});
+		logOAuth('exchange-start', {
+			...logContextBase,
+			timeoutMs: tokenExchangeTimeoutMs,
+			redirectUri,
+			codePrefix,
+			clientIdSource
+		});
 
 		let tokenRes: Response;
 		try {
@@ -163,7 +219,9 @@ export default async function (req: any): Promise<Response> {
 			logOAuth('exchange-error', {
 				...logContextBase,
 				durationMs: Date.now() - startedAt,
-				error: isAbort ? 'timeout' : fetchError?.message || 'fetch failed'
+				error: isAbort ? 'timeout' : fetchError?.message || 'fetch failed',
+				codePrefix,
+				clientIdSource
 			});
 			return buildErrorResponse(isAbort ? 504 : 502, isAbort ? 'GitHub token exchange timed out' : 'GitHub token exchange failed');
 		}
@@ -171,7 +229,9 @@ export default async function (req: any): Promise<Response> {
 		logOAuth('exchange-response', {
 			...logContextBase,
 			durationMs: Date.now() - startedAt,
-			status: tokenRes.status
+			status: tokenRes.status,
+			codePrefix,
+			clientIdSource
 		});
 		if (!tokenRes.ok) {
 			const text = await tokenRes.text();
@@ -179,7 +239,9 @@ export default async function (req: any): Promise<Response> {
 			logOAuth('exchange-non-ok', {
 				...logContextBase,
 				status: tokenRes.status,
-				bodyPreview
+				bodyPreview,
+				codePrefix,
+				clientIdSource
 			});
 			return buildErrorResponse(502, 'GitHub token request failed', {
 				status: tokenRes.status,
@@ -198,7 +260,9 @@ export default async function (req: any): Promise<Response> {
 				...logContextBase,
 				durationMs: Date.now() - startedAt,
 				error: parseErr?.message || 'unable to parse json',
-				bodyPreview
+				bodyPreview,
+				codePrefix,
+				clientIdSource
 			});
 			return buildErrorResponse(502, 'Invalid response from GitHub token exchange', {
 				error: parseErr?.message || 'unable to parse json',
@@ -211,7 +275,10 @@ export default async function (req: any): Promise<Response> {
 			logOAuth('missing-access-token', {
 				...logContextBase,
 				durationMs: Date.now() - startedAt,
-				githubError: tokenJson?.error || null
+				githubError: tokenJson?.error || null,
+				codePrefix,
+				clientIdSource,
+				redirectUri
 			});
 			return buildErrorResponse(502, 'No access_token in response', {
 				hasErrorField: typeof tokenJson?.error === 'string'
@@ -226,7 +293,9 @@ export default async function (req: any): Promise<Response> {
 			...logContextBase,
 			durationMs: Date.now() - startedAt,
 			appBase: url,
-			appBaseSource
+			appBaseSource,
+			codePrefix,
+			clientIdSource
 		});
 
 		return Response.redirect(redirect.toString(), 302);
