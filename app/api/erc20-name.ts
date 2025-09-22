@@ -89,7 +89,7 @@ function decodeAbiString(resultHex: string): string {
 	return bytesToUtf8(hexToBytes(hex));
 }
 
-export const config = {runtime: 'nodejs'};
+export const config = {runtime: 'edge'};
 
 const JSON_HEADERS = {'Content-Type': 'application/json'} as const;
 const CACHE_TTL_MS = normalizePositiveInt(readEnv('ERC20_NAME_CACHE_TTL_MS'), 5 * 60 * 1000);
