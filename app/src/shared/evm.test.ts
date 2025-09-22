@@ -67,7 +67,28 @@ describe('getRpcUrl', () => {
 	});
 
 	it('falls back to known defaults', () => {
+		// Temporarily unset any env vars for 8453 to test the fallback
+		const envKeys = ['VITE_RPC_URI_FOR_8453', 'VITE_RPC_8453', 'RPC_URI_FOR_8453', 'RPC_8453'];
+		const originalValues: Record<string, string | undefined> = {};
+
+		envKeys.forEach(key => {
+			originalValues[key] = process.env[key];
+			delete process.env[key];
+			mutatedKeys.add(key);
+		});
+
+		// Clear cache after unsetting env vars
+		__clearEnvCacheForTesting();
+
 		expect(getRpcUrl(8453)).toBe(DEFAULT_RPC_URLS[8453]);
+
+		// Restore original values
+		envKeys.forEach(key => {
+			if (originalValues[key] !== undefined) {
+				process.env[key] = originalValues[key];
+			}
+		});
+		__clearEnvCacheForTesting();
 	});
 
 	it('returns undefined when nothing available', () => {
