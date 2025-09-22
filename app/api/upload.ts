@@ -1,4 +1,4 @@
-export const config = {runtime: 'nodejs'};
+export const config = {runtime: 'edge'};
 
 import {getUserLogin, openPrWithFilesForkAware} from './github';
 import {
@@ -7,6 +7,17 @@ import {
 	buildPrFiles,
 	parseUploadForm
 } from './_lib/upload';
+
+function readEnv(key: string): string | undefined {
+	if (typeof process !== 'undefined' && process.env) {
+		const raw = process.env[key];
+		if (typeof raw === 'string') {
+			const trimmed = raw.trim();
+			return trimmed ? trimmed : undefined;
+		}
+	}
+	return undefined;
+}
 
 const CANONICAL_OWNER = 'yearn';
 const CANONICAL_REPO = 'tokenAssets';
@@ -32,21 +43,23 @@ function getHeader(req: any, key: string): string | undefined {
 }
 
 function resolveTargetRepo(): TargetRepo {
-	const envOwner = (process.env.REPO_OWNER as string | undefined)?.trim();
-	const envRepo = (process.env.REPO_NAME as string | undefined)?.trim();
-	const vercelOwner = (process.env.VERCEL_GIT_REPO_OWNER as string | undefined)?.trim();
-	const vercelRepo = (process.env.VERCEL_GIT_REPO_SLUG as string | undefined)?.trim();
-	const allowOverride = (process.env.ALLOW_REPO_OVERRIDE || '').toLowerCase() === 'true';
+	const envOwner = readEnv('REPO_OWNER');
+	const envRepo = readEnv('REPO_NAME');
+	const vercelOwner = readEnv('VERCEL_GIT_REPO_OWNER');
+	const vercelRepo = readEnv('VERCEL_GIT_REPO_SLUG');
+	const allowOverrideRaw = readEnv('ALLOW_REPO_OVERRIDE');
+	const allowOverride = (allowOverrideRaw || '').toLowerCase() === 'true';
 
 	let owner = CANONICAL_OWNER;
 	let repo = CANONICAL_REPO;
 	let reason: TargetRepo['reason'] = 'canonical';
 
 	if (envOwner && envRepo) {
-		const isSelfDeploy =
-			vercelOwner && vercelRepo
-				? envOwner.toLowerCase() === vercelOwner.toLowerCase() && envRepo.toLowerCase() === vercelRepo.toLowerCase()
-				: false;
+		const envOwnerLower = envOwner.toLowerCase();
+		const envRepoLower = envRepo.toLowerCase();
+		const vercelOwnerLower = vercelOwner?.toLowerCase();
+		const vercelRepoLower = vercelRepo?.toLowerCase();
+		const isSelfDeploy = Boolean(vercelOwnerLower && vercelRepoLower) && envOwnerLower === vercelOwnerLower && envRepoLower === vercelRepoLower;
 		if (allowOverride || !isSelfDeploy) {
 			owner = envOwner;
 			repo = envRepo;
@@ -71,7 +84,7 @@ function jsonResponse(status: number, body: Record<string, unknown>): Response {
 	});
 }
 
-export default async function handler(req: any): Promise<Response> {
+export default async function handler(req: Request): Promise<Response> {
 	if (req.method !== 'POST') return new Response('Method Not Allowed', {status: 405});
 	try {
 		const auth = getHeader(req, 'authorization') || '';
