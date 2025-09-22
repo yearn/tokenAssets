@@ -6,11 +6,28 @@ export const AUTH_CHANGE_EVENT = 'github-auth-changed';
 export const AUTH_PENDING_STORAGE_KEY = 'github_oauth_pending';
 export const AUTH_ERROR_STORAGE_KEY = 'github_oauth_error';
 
+function buildRedirectUri(): string | undefined {
+	const explicit = import.meta.env?.VITE_GITHUB_REDIRECT_URI;
+	if (explicit) return explicit;
+	if (typeof window !== 'undefined' && window.location?.origin) {
+		const origin = window.location.origin.replace(/\/$/, '');
+		return `${origin}/api/auth/github/callback`;
+	}
+	const base = import.meta.env?.VITE_APP_BASE_URL || import.meta.env?.VITE_SITE_URL;
+	if (base) {
+		const normalized = base.replace(/\/$/, '');
+		return `${normalized}/api/auth/github/callback`;
+	}
+	return undefined;
+}
+
 export function buildAuthorizeUrl(clientId: string, state: string) {
 	const url = new URL('https://github.com/login/oauth/authorize');
 	url.searchParams.set('client_id', clientId);
 	url.searchParams.set('state', state);
 	url.searchParams.set('scope', 'public_repo');
+	const redirectUri = buildRedirectUri();
+	if (redirectUri) url.searchParams.set('redirect_uri', redirectUri);
 	return url.toString();
 }
 
