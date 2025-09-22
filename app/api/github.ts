@@ -1,44 +1,49 @@
 type RepoInfo = {
-  default_branch: string;
+	default_branch: string;
 };
 
 type RefObject = {
-  object: { sha: string };
+	object: {sha: string};
 };
 
 async function gh<T>(token: string, method: string, url: string, body?: unknown): Promise<T> {
-  const res = await fetch(url, {
-    method,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: 'application/vnd.github+json',
-      'Content-Type': 'application/json',
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`${method} ${url} -> ${res.status}: ${text}`);
-  }
-  return (await res.json()) as T;
+	const res = await fetch(url, {
+		method,
+		headers: {
+			Authorization: `Bearer ${token}`,
+			Accept: 'application/vnd.github+json',
+			'Content-Type': 'application/json'
+		},
+		body: body ? JSON.stringify(body) : undefined
+	});
+	if (!res.ok) {
+		const text = await res.text();
+		throw new Error(`${method} ${url} -> ${res.status}: ${text}`);
+	}
+	return (await res.json()) as T;
 }
 
 export async function getUserLogin(token: string): Promise<string> {
-  const data = await gh<{ login: string }>(token, 'GET', 'https://api.github.com/user');
-  return data.login;
+	const data = await gh<{login: string}>(token, 'GET', 'https://api.github.com/user');
+	return data.login;
 }
 
 export async function getRepoInfo(token: string, owner: string, repo: string): Promise<RepoInfo> {
-  return gh<RepoInfo>(token, 'GET', `https://api.github.com/repos/${owner}/${repo}`);
+	return gh<RepoInfo>(token, 'GET', `https://api.github.com/repos/${owner}/${repo}`);
 }
 
 export async function getHeadRef(token: string, owner: string, repo: string, branch: string): Promise<RefObject> {
-  // GitHub API path uses 'refs' (plural)
-  return gh<RefObject>(token, 'GET', `https://api.github.com/repos/${owner}/${repo}/git/refs/heads/${branch}`);
+	// GitHub API path uses 'refs' (plural)
+	return gh<RefObject>(token, 'GET', `https://api.github.com/repos/${owner}/${repo}/git/refs/heads/${branch}`);
 }
 
-export async function getCommit(token: string, owner: string, repo: string, commitSha: string): Promise<{ sha: string; tree: { sha: string } }>{
-  return gh(token, 'GET', `https://api.github.com/repos/${owner}/${repo}/git/commits/${commitSha}`);
+export async function getCommit(
+	token: string,
+	owner: string,
+	repo: string,
+	commitSha: string
+): Promise<{sha: string; tree: {sha: string}}> {
+	return gh(token, 'GET', `https://api.github.com/repos/${owner}/${repo}/git/commits/${commitSha}`);
 }
 
 type BranchContext = {
@@ -54,28 +59,73 @@ async function loadBranchContext(token: string, owner: string, repo: string, bra
 	return {branch, baseCommitSha, baseTreeSha: baseCommit.tree.sha};
 }
 
-export async function createBlob(token: string, owner: string, repo: string, contentBase64: string): Promise<{ sha: string }>{
-  return gh(token, 'POST', `https://api.github.com/repos/${owner}/${repo}/git/blobs`, { content: contentBase64, encoding: 'base64' });
+export async function createBlob(
+	token: string,
+	owner: string,
+	repo: string,
+	contentBase64: string
+): Promise<{sha: string}> {
+	return gh(token, 'POST', `https://api.github.com/repos/${owner}/${repo}/git/blobs`, {
+		content: contentBase64,
+		encoding: 'base64'
+	});
 }
 
-export async function createTree(token: string, owner: string, repo: string, baseTreeSha: string, entries: Array<{ path: string; mode: string; type: string; sha: string }>): Promise<{ sha: string }>{
-  return gh(token, 'POST', `https://api.github.com/repos/${owner}/${repo}/git/trees`, { base_tree: baseTreeSha, tree: entries });
+export async function createTree(
+	token: string,
+	owner: string,
+	repo: string,
+	baseTreeSha: string,
+	entries: Array<{path: string; mode: string; type: string; sha: string}>
+): Promise<{sha: string}> {
+	return gh(token, 'POST', `https://api.github.com/repos/${owner}/${repo}/git/trees`, {
+		base_tree: baseTreeSha,
+		tree: entries
+	});
 }
 
-export async function createCommit(token: string, owner: string, repo: string, message: string, treeSha: string, parentSha: string): Promise<{ sha: string }>{
-  return gh(token, 'POST', `https://api.github.com/repos/${owner}/${repo}/git/commits`, { message, tree: treeSha, parents: [parentSha] });
+export async function createCommit(
+	token: string,
+	owner: string,
+	repo: string,
+	message: string,
+	treeSha: string,
+	parentSha: string
+): Promise<{sha: string}> {
+	return gh(token, 'POST', `https://api.github.com/repos/${owner}/${repo}/git/commits`, {
+		message,
+		tree: treeSha,
+		parents: [parentSha]
+	});
 }
 
-export async function createRef(token: string, owner: string, repo: string, branch: string, sha: string): Promise<{ ref: string }>{
-  return gh(token, 'POST', `https://api.github.com/repos/${owner}/${repo}/git/refs`, { ref: `refs/heads/${branch}`, sha });
+export async function createRef(
+	token: string,
+	owner: string,
+	repo: string,
+	branch: string,
+	sha: string
+): Promise<{ref: string}> {
+	return gh(token, 'POST', `https://api.github.com/repos/${owner}/${repo}/git/refs`, {
+		ref: `refs/heads/${branch}`,
+		sha
+	});
 }
 
-export async function createPullRequest(token: string, owner: string, repo: string, title: string, head: string, base: string, body: string): Promise<{ html_url: string }>{
-  return gh(token, 'POST', `https://api.github.com/repos/${owner}/${repo}/pulls`, { title, head, base, body });
+export async function createPullRequest(
+	token: string,
+	owner: string,
+	repo: string,
+	title: string,
+	head: string,
+	base: string,
+	body: string
+): Promise<{html_url: string}> {
+	return gh(token, 'POST', `https://api.github.com/repos/${owner}/${repo}/pulls`, {title, head, base, body});
 }
 
 async function sleep(ms: number) {
-  return new Promise((r) => setTimeout(r, ms));
+	return new Promise(r => setTimeout(r, ms));
 }
 
 async function commitExists(token: string, owner: string, repo: string, commitSha: string): Promise<boolean> {
@@ -90,12 +140,14 @@ async function commitExists(token: string, owner: string, repo: string, commitSh
 async function syncForkWithUpstream(token: string, owner: string, repo: string, branch: string) {
 	try {
 		await gh(token, 'POST', `https://api.github.com/repos/${owner}/${repo}/merge-upstream`, {
-			branch,
+			branch
 		});
 	} catch (e: any) {
 		const msg = String(e?.message || '');
 		if (msg.includes('409') || msg.includes('422')) {
-			throw new Error('Unable to sync your fork with the upstream repository. Please update your fork to match upstream and retry.');
+			throw new Error(
+				'Unable to sync your fork with the upstream repository. Please update your fork to match upstream and retry.'
+			);
 		}
 		throw e;
 	}
@@ -106,7 +158,8 @@ async function ensureForkHasCommit(token: string, owner: string, repo: string, b
 	if (exists) return;
 	await syncForkWithUpstream(token, owner, repo, branch);
 	const stillMissing = !(await commitExists(token, owner, repo, commitSha));
-	if (stillMissing) throw new Error('Unable to prepare fork for PR creation. Please sync your fork with upstream and try again.');
+	if (stillMissing)
+		throw new Error('Unable to prepare fork for PR creation. Please sync your fork with upstream and try again.');
 }
 
 async function commitFilesToBranch(params: {
@@ -115,7 +168,7 @@ async function commitFilesToBranch(params: {
 	repo: string;
 	branchName: string;
 	commitMessage: string;
-	files: Array<{ path: string; contentBase64: string }>;
+	files: Array<{path: string; contentBase64: string}>;
 	baseCommitSha: string;
 	baseTreeSha: string;
 }) {
@@ -137,38 +190,43 @@ async function commitFilesToBranch(params: {
 	return commit.sha;
 }
 
-export async function ensureFork(token: string, baseOwner: string, baseRepo: string, login?: string): Promise<{ owner: string; repo: string }>{
-  const user = login || (await getUserLogin(token));
-  // Trigger fork (idempotent)
-  await gh(token, 'POST', `https://api.github.com/repos/${baseOwner}/${baseRepo}/forks`);
-  // Poll for availability
-  for (let i = 0; i < 10; i++) {
-    try {
-      await gh(token, 'GET', `https://api.github.com/repos/${user}/${baseRepo}`);
-      return { owner: user, repo: baseRepo };
-    } catch {
-      await sleep(800);
-    }
-  }
-  // Last try; let it throw if still not ready
-  await gh(token, 'GET', `https://api.github.com/repos/${user}/${baseRepo}`);
-  return { owner: user, repo: baseRepo };
+export async function ensureFork(
+	token: string,
+	baseOwner: string,
+	baseRepo: string,
+	login?: string
+): Promise<{owner: string; repo: string}> {
+	const user = login || (await getUserLogin(token));
+	// Trigger fork (idempotent)
+	await gh(token, 'POST', `https://api.github.com/repos/${baseOwner}/${baseRepo}/forks`);
+	// Poll for availability
+	for (let i = 0; i < 10; i++) {
+		try {
+			await gh(token, 'GET', `https://api.github.com/repos/${user}/${baseRepo}`);
+			return {owner: user, repo: baseRepo};
+		} catch {
+			await sleep(800);
+		}
+	}
+	// Last try; let it throw if still not ready
+	await gh(token, 'GET', `https://api.github.com/repos/${user}/${baseRepo}`);
+	return {owner: user, repo: baseRepo};
 }
 
 async function openPrWithFilesDirect(params: {
-  token: string;
-  owner: string; // repo where commit happens
-  repo: string;
-  branchName: string;
-  commitMessage: string;
-  prTitle: string;
-  prBody: string;
-  files: Array<{ path: string; contentBase64: string }>;
+	token: string;
+	owner: string; // repo where commit happens
+	repo: string;
+	branchName: string;
+	commitMessage: string;
+	prTitle: string;
+	prBody: string;
+	files: Array<{path: string; contentBase64: string}>;
 }): Promise<string> {
-  const { token, owner, repo } = params;
-  const repoInfo = await getRepoInfo(token, owner, repo);
-  const baseBranch = repoInfo.default_branch || 'main';
-  const context = await loadBranchContext(token, owner, repo, baseBranch);
+	const {token, owner, repo} = params;
+	const repoInfo = await getRepoInfo(token, owner, repo);
+	const baseBranch = repoInfo.default_branch || 'main';
+	const context = await loadBranchContext(token, owner, repo, baseBranch);
 	await commitFilesToBranch({
 		token,
 		owner,
@@ -179,31 +237,39 @@ async function openPrWithFilesDirect(params: {
 		baseCommitSha: context.baseCommitSha,
 		baseTreeSha: context.baseTreeSha
 	});
-	const pr = await createPullRequest(token, owner, repo, params.prTitle, params.branchName, context.branch, params.prBody);
+	const pr = await createPullRequest(
+		token,
+		owner,
+		repo,
+		params.prTitle,
+		params.branchName,
+		context.branch,
+		params.prBody
+	);
 	return pr.html_url;
 }
 
 export async function openPrWithFilesToBaseFromHead(params: {
-  token: string;
-  baseOwner: string; // where PR is opened
-  baseRepo: string;
-  headOwner: string; // where branch/commit happen
-  headRepo: string;
-  branchName: string;
-  commitMessage: string;
-  prTitle: string;
-  prBody: string;
-  files: Array<{ path: string; contentBase64: string }>;
+	token: string;
+	baseOwner: string; // where PR is opened
+	baseRepo: string;
+	headOwner: string; // where branch/commit happen
+	headRepo: string;
+	branchName: string;
+	commitMessage: string;
+	prTitle: string;
+	prBody: string;
+	files: Array<{path: string; contentBase64: string}>;
 }) {
-  const { token, baseOwner, baseRepo, headOwner, headRepo } = params;
+	const {token, baseOwner, baseRepo, headOwner, headRepo} = params;
 
-  const baseInfo = await getRepoInfo(token, baseOwner, baseRepo);
-  const baseBranch = baseInfo.default_branch || 'main';
-  const baseContext = await loadBranchContext(token, baseOwner, baseRepo, baseBranch);
+	const baseInfo = await getRepoInfo(token, baseOwner, baseRepo);
+	const baseBranch = baseInfo.default_branch || 'main';
+	const baseContext = await loadBranchContext(token, baseOwner, baseRepo, baseBranch);
 
-  if (headOwner !== baseOwner || headRepo !== baseRepo) {
-	await ensureForkHasCommit(token, headOwner, headRepo, baseContext.branch, baseContext.baseCommitSha);
-  }
+	if (headOwner !== baseOwner || headRepo !== baseRepo) {
+		await ensureForkHasCommit(token, headOwner, headRepo, baseContext.branch, baseContext.baseCommitSha);
+	}
 
 	await commitFilesToBranch({
 		token,
@@ -216,100 +282,108 @@ export async function openPrWithFilesToBaseFromHead(params: {
 		baseTreeSha: baseContext.baseTreeSha
 	});
 
-  // Open PR in base repo using head owner:branch
-  const pr = await createPullRequest(
-    token,
-    baseOwner,
-    baseRepo,
-    params.prTitle,
-    `${headOwner}:${params.branchName}`,
-    baseBranch,
-    params.prBody
-  );
-  return pr.html_url;
+	// Open PR in base repo using head owner:branch
+	const pr = await createPullRequest(
+		token,
+		baseOwner,
+		baseRepo,
+		params.prTitle,
+		`${headOwner}:${params.branchName}`,
+		baseBranch,
+		params.prBody
+	);
+	return pr.html_url;
 }
 
 export async function openPrWithFilesForkAware(params: {
-  token: string;
-  baseOwner: string; // target repo owner (org)
-  baseRepo: string;
-  branchName: string;
-  commitMessage: string;
-  prTitle: string;
-  prBody: string;
-  files: Array<{ path: string; contentBase64: string }>;
+	token: string;
+	baseOwner: string; // target repo owner (org)
+	baseRepo: string;
+	branchName: string;
+	commitMessage: string;
+	prTitle: string;
+	prBody: string;
+	files: Array<{path: string; contentBase64: string}>;
 }) {
-  // Try direct (may fail with 403 due to org OAuth restrictions)
-  try {
-    return await openPrWithFilesDirect({
-      token: params.token,
-      owner: params.baseOwner,
-      repo: params.baseRepo,
-      branchName: params.branchName,
-      commitMessage: params.commitMessage,
-      prTitle: params.prTitle,
-      prBody: params.prBody,
-      files: params.files
-    });
-  } catch (e: any) {
-    const msg = String(e?.message || '');
-    const is403 = msg.includes(' 403:') || msg.includes('status":"403');
-    if (!is403) throw e;
-    // Fallback to fork flow
-    const login = await getUserLogin(params.token);
-    const head = await ensureFork(params.token, params.baseOwner, params.baseRepo, login);
-    return openPrWithFilesToBaseFromHead({
-      token: params.token,
-      baseOwner: params.baseOwner,
-      baseRepo: params.baseRepo,
-      headOwner: head.owner,
-      headRepo: head.repo,
-      branchName: params.branchName,
-      commitMessage: params.commitMessage,
-      prTitle: params.prTitle,
-      prBody: params.prBody,
-      files: params.files,
-    });
-  }
+	// Try direct (may fail with 403 due to org OAuth restrictions)
+	try {
+		return await openPrWithFilesDirect({
+			token: params.token,
+			owner: params.baseOwner,
+			repo: params.baseRepo,
+			branchName: params.branchName,
+			commitMessage: params.commitMessage,
+			prTitle: params.prTitle,
+			prBody: params.prBody,
+			files: params.files
+		});
+	} catch (e: any) {
+		const msg = String(e?.message || '');
+		const is403 = msg.includes(' 403:') || msg.includes('status":"403');
+		if (!is403) throw e;
+		// Fallback to fork flow
+		const login = await getUserLogin(params.token);
+		const head = await ensureFork(params.token, params.baseOwner, params.baseRepo, login);
+		return openPrWithFilesToBaseFromHead({
+			token: params.token,
+			baseOwner: params.baseOwner,
+			baseRepo: params.baseRepo,
+			headOwner: head.owner,
+			headRepo: head.repo,
+			branchName: params.branchName,
+			commitMessage: params.commitMessage,
+			prTitle: params.prTitle,
+			prBody: params.prBody,
+			files: params.files
+		});
+	}
 }
 
 export async function openPrWithFiles(params: {
-  token: string;
-  owner: string;
-  repo: string;
-  baseBranch?: string;
-  branchName: string;
-  commitMessage: string;
-  prTitle: string;
-  prBody: string;
-  files: Array<{ path: string; contentBase64: string }>; // repo-relative paths
+	token: string;
+	owner: string;
+	repo: string;
+	baseBranch?: string;
+	branchName: string;
+	commitMessage: string;
+	prTitle: string;
+	prBody: string;
+	files: Array<{path: string; contentBase64: string}>; // repo-relative paths
 }) {
-  const { token, owner, repo } = params;
-  const repoInfo = await getRepoInfo(token, owner, repo);
-  const baseBranch = params.baseBranch || repoInfo.default_branch || 'main';
-  const headRef = await getHeadRef(token, owner, repo, baseBranch);
-  const baseCommitSha = headRef.object.sha;
-  const baseCommit = await getCommit(token, owner, repo, baseCommitSha);
+	const {token, owner, repo} = params;
+	const repoInfo = await getRepoInfo(token, owner, repo);
+	const baseBranch = params.baseBranch || repoInfo.default_branch || 'main';
+	const headRef = await getHeadRef(token, owner, repo, baseBranch);
+	const baseCommitSha = headRef.object.sha;
+	const baseCommit = await getCommit(token, owner, repo, baseCommitSha);
 
-  // Create tree entries from provided files (already base64-encoded)
-  const blobShas: Array<{ path: string; sha: string }> = [];
-  for (const f of params.files) {
-    const blob = await createBlob(token, owner, repo, f.contentBase64);
-    blobShas.push({ path: f.path, sha: blob.sha });
-  }
+	// Create tree entries from provided files (already base64-encoded)
+	const blobShas: Array<{path: string; sha: string}> = [];
+	for (const f of params.files) {
+		const blob = await createBlob(token, owner, repo, f.contentBase64);
+		blobShas.push({path: f.path, sha: blob.sha});
+	}
 
-  const tree = await createTree(
-    token,
-    owner,
-    repo,
-    baseCommit.tree.sha,
-    blobShas.map((b) => ({ path: b.path, mode: '100644', type: 'blob', sha: b.sha }))
-  );
+	const tree = await createTree(
+		token,
+		owner,
+		repo,
+		baseCommit.tree.sha,
+		blobShas.map(b => ({path: b.path, mode: '100644', type: 'blob', sha: b.sha}))
+	);
 
-  const commit = await createCommit(token, owner, repo, params.commitMessage, tree.sha, baseCommitSha);
+	const commit = await createCommit(token, owner, repo, params.commitMessage, tree.sha, baseCommitSha);
 
-  await createRef(token, owner, repo, params.branchName, commit.sha);
+	await createRef(token, owner, repo, params.branchName, commit.sha);
 
-  const pr = await createPullRequest(token, owner, repo, params.prTitle, params.branchName, baseBranch, params.prBody);
-  return pr.html_url;
+	const pr = await createPullRequest(
+		token,
+		owner,
+		repo,
+		params.prTitle,
+		params.branchName,
+		baseBranch,
+		params.prBody
+	);
+	return pr.html_url;
 }

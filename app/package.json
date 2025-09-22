@@ -12,7 +12,7 @@
 		"test:watch": "vitest --pool threads --poolOptions threads.singleThread=true --watch",
 		"build": "vite build",
 		"preview": "vite preview",
-		"validate": "bun run lint && bun run typecheck && bun run test"
+		"validate": "bun run lint:fix && bun run typecheck && bun run test"
 	},
 	"dependencies": {
 		"@headlessui/react": "^2.2.8",
