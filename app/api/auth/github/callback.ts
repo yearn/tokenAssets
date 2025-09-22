@@ -62,6 +62,14 @@ function getRequestUrl(req: any): URL {
 }
 
 function resolveAppBase(req?: any): {url: string; source: string} {
+	if (req) {
+		const parsed = getRequestUrl(req);
+		if (parsed.origin && parsed.origin !== 'null') return {url: parsed.origin, source: 'request-url'};
+		const host = getHeader(req, 'x-forwarded-host') || getHeader(req, 'host');
+		const proto = getHeader(req, 'x-forwarded-proto') || (host?.includes('localhost') ? 'http' : 'https');
+		if (host) return {url: `${proto}://${host}`, source: 'request-headers'};
+	}
+
 	const appBaseExplicit = readEnv('APP_BASE_URL');
 	if (appBaseExplicit && appBaseExplicit !== '/') return {url: appBaseExplicit, source: 'APP_BASE_URL'};
 
@@ -70,14 +78,6 @@ function resolveAppBase(req?: any): {url: string; source: string} {
 
 	const vercelUrl = readEnv('VERCEL_URL');
 	if (vercelUrl) return {url: normalizeBaseUrl(vercelUrl), source: 'VERCEL_URL'};
-
-	if (req) {
-		const parsed = getRequestUrl(req);
-		if (parsed.origin && parsed.origin !== 'null') return {url: parsed.origin, source: 'request-url'};
-		const host = getHeader(req, 'x-forwarded-host') || getHeader(req, 'host');
-		const proto = getHeader(req, 'x-forwarded-proto') || (host?.includes('localhost') ? 'http' : 'https');
-		if (host) return {url: `${proto}://${host}`, source: 'request-headers'};
-	}
 
 	return {url: 'http://localhost:5173', source: 'fallback-default'};
 }
@@ -138,7 +138,7 @@ export default async function (req: any): Promise<Response> {
 
 		const controller = new AbortController();
 		const timeoutId = setTimeout(() => controller.abort(), tokenExchangeTimeoutMs);
-		logOAuth('exchange-start', {...logContextBase, timeoutMs: tokenExchangeTimeoutMs});
+		logOAuth('exchange-start', {...logContextBase, timeoutMs: tokenExchangeTimeoutMs, redirectUri});
 
 		let tokenRes: Response;
 		try {
