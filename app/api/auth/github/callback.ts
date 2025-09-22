@@ -125,7 +125,7 @@ function buildErrorResponse(status: number, message: string, debugData?: Record<
 	});
 }
 
-export const config = {runtime: 'nodejs'};
+export const config = {runtime: 'edge'};
 
 export default async function (req: any): Promise<Response> {
 	const startedAt = Date.now();
@@ -298,7 +298,14 @@ export default async function (req: any): Promise<Response> {
 			clientIdSource
 		});
 
-		return Response.redirect(redirect.toString(), 302);
+		const location = redirect.toString();
+		return new Response(null, {
+			status: 302,
+			headers: {
+				Location: location,
+				'Cache-Control': 'no-store'
+			}
+		});
 	} catch (e: any) {
 		logOAuth('unhandled-error', {
 			...logContextBase,
