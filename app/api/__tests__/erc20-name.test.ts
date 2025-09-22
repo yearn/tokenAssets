@@ -16,7 +16,7 @@ declare const Request: typeof globalThis.Request;
 function makeRequest(body: unknown) {
 	return new Request('https://example.com/api/erc20-name', {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
+		headers: {'Content-Type': 'application/json'},
 		body: JSON.stringify(body)
 	});
 }
@@ -29,7 +29,7 @@ function setRpcEnv(url?: string) {
 	if (url) {
 		process.env.VITE_RPC_URI_FOR_1 = url;
 	} else {
-		delete process.env.VITE_RPC_URI_FOR_1;
+		process.env.VITE_RPC_URI_FOR_1 = undefined;
 	}
 }
 
@@ -89,9 +89,9 @@ describe('api/erc20-name', () => {
 
 	it('surfaces RPC HTTP errors with details', async () => {
 		setRpcEnv('https://rpc.example');
-		const mockFetch = vi.fn().mockResolvedValue(
-			new Response('Internal error', {status: 500, headers: {'Content-Type': 'text/plain'}})
-		);
+		const mockFetch = vi
+			.fn()
+			.mockResolvedValue(new Response('Internal error', {status: 500, headers: {'Content-Type': 'text/plain'}}));
 		vi.stubGlobal('fetch', mockFetch);
 		const {default: handler, __clearCacheForTesting} = await loadHandler();
 		const res = await handler(makeRequest({chainId: 1, address: VALID_ADDRESS}));

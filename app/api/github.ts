@@ -167,7 +167,7 @@ async function openPrWithFilesDirect(params: {
 }): Promise<string> {
   const { token, owner, repo } = params;
   const repoInfo = await getRepoInfo(token, owner, repo);
-  const baseBranch = repoInfo.default_branch;
+  const baseBranch = repoInfo.default_branch || 'main';
   const context = await loadBranchContext(token, owner, repo, baseBranch);
 	await commitFilesToBranch({
 		token,
@@ -198,16 +198,13 @@ export async function openPrWithFilesToBaseFromHead(params: {
   const { token, baseOwner, baseRepo, headOwner, headRepo } = params;
 
   const baseInfo = await getRepoInfo(token, baseOwner, baseRepo);
-  const baseBranch = baseInfo.default_branch;
+  const baseBranch = baseInfo.default_branch || 'main';
   const baseContext = await loadBranchContext(token, baseOwner, baseRepo, baseBranch);
 
   if (headOwner !== baseOwner || headRepo !== baseRepo) {
-	const headInfo = await getRepoInfo(token, headOwner, headRepo);
-	const headBaseBranch = headInfo.default_branch;
-	await ensureForkHasCommit(token, headOwner, headRepo, headBaseBranch, baseContext.baseCommitSha);
+	await ensureForkHasCommit(token, headOwner, headRepo, baseContext.branch, baseContext.baseCommitSha);
   }
 
-  const headContext = await loadBranchContext(token, headOwner, headRepo, baseContext.branch);
 	await commitFilesToBranch({
 		token,
 		owner: headOwner,
@@ -215,8 +212,8 @@ export async function openPrWithFilesToBaseFromHead(params: {
 		branchName: params.branchName,
 		commitMessage: params.commitMessage,
 		files: params.files,
-		baseCommitSha: headContext.baseCommitSha,
-		baseTreeSha: headContext.baseTreeSha
+		baseCommitSha: baseContext.baseCommitSha,
+		baseTreeSha: baseContext.baseTreeSha
 	});
 
   // Open PR in base repo using head owner:branch
@@ -289,7 +286,7 @@ export async function openPrWithFiles(params: {
 }) {
   const { token, owner, repo } = params;
   const repoInfo = await getRepoInfo(token, owner, repo);
-  const baseBranch = params.baseBranch || repoInfo.default_branch;
+  const baseBranch = params.baseBranch || repoInfo.default_branch || 'main';
   const headRef = await getHeadRef(token, owner, repo, baseBranch);
   const baseCommitSha = headRef.object.sha;
   const baseCommit = await getCommit(token, owner, repo, baseCommitSha);

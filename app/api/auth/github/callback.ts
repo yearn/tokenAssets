@@ -183,7 +183,7 @@ export default async function (req: any): Promise<Response> {
 		const redirectUri = new URL('/api/auth/github/callback', appBase).toString();
 
 		const timeoutRaw = readEnv('GITHUB_OAUTH_TIMEOUT_MS');
-		const timeoutParsed = timeoutRaw ? Number(timeoutRaw) : NaN;
+		const timeoutParsed = timeoutRaw ? Number(timeoutRaw) : Number.NaN;
 		const tokenExchangeTimeoutMs = Number.isFinite(timeoutParsed) && timeoutParsed > 0 ? timeoutParsed : 8000;
 
 		const controller = new AbortController();
@@ -223,7 +223,10 @@ export default async function (req: any): Promise<Response> {
 				codePrefix,
 				clientIdSource
 			});
-			return buildErrorResponse(isAbort ? 504 : 502, isAbort ? 'GitHub token exchange timed out' : 'GitHub token exchange failed');
+			return buildErrorResponse(
+				isAbort ? 504 : 502,
+				isAbort ? 'GitHub token exchange timed out' : 'GitHub token exchange failed'
+			);
 		}
 		clearTimeout(timeoutId);
 		logOAuth('exchange-response', {

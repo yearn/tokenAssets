@@ -45,7 +45,7 @@ export default async function authorize(req: Request): Promise<Response> {
 	const requestUrl = new URL(req.url);
 	const providedState = requestUrl.searchParams.get('state') || '';
 	const clientIdFromQuery = requestUrl.searchParams.get('client_id');
-	const state = providedState && providedState.trim().length ? providedState : crypto.randomUUID();
+	const state = providedState?.trim().length ? providedState : crypto.randomUUID();
 
 	if (clientIdFromQuery && clientIdFromQuery !== githubClientId) {
 		logAuthorize('client-id-mismatch', {

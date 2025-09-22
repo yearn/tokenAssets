@@ -1,6 +1,6 @@
 import {afterEach, beforeEach, describe, expect, it} from 'vitest';
-import {__clearEnvCacheForTesting} from './env';
 import {buildApiUrl, getApiBaseUrl, resolveAppBaseUrl} from './api';
+import {__clearEnvCacheForTesting} from './env';
 
 const originalEnv = {...process.env};
 const mutatedKeys = new Set<string>();
@@ -18,7 +18,7 @@ function clearEnv(key: string) {
 
 function restoreWindow() {
 	if (originalWindow === undefined) {
-		delete (globalThis as any).window;
+		(globalThis as any).window = undefined;
 	} else {
 		(globalThis as any).window = originalWindow;
 	}
@@ -50,14 +50,14 @@ describe('getApiBaseUrl', () => {
 
 	it('falls back to window origin when base is root', () => {
 		setEnv('VITE_API_BASE_URL', '/');
-		(globalThis as any).window = { location: { origin: 'https://app.test' } };
+		(globalThis as any).window = {location: {origin: 'https://app.test'}};
 		expect(getApiBaseUrl()).toBe('https://app.test');
 	});
 
 	it('returns root when neither env nor window origin exist', () => {
 		clearEnv('VITE_API_BASE_URL');
 		clearEnv('API_BASE_URL');
-		delete (globalThis as any).window;
+		(globalThis as any).window = undefined;
 		expect(getApiBaseUrl()).toBe('/');
 	});
 });
@@ -93,7 +93,7 @@ describe('resolveAppBaseUrl', () => {
 		clearEnv('APP_BASE_URL');
 		clearEnv('VITE_API_BASE_URL');
 		clearEnv('API_BASE_URL');
-		delete (globalThis as any).window;
+		(globalThis as any).window = undefined;
 		expect(resolveAppBaseUrl()).toBe('/');
 	});
 });
