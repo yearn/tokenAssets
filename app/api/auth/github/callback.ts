@@ -12,11 +12,20 @@ function readEnv(key: string): string | undefined {
 
 const oauthDebugFlag = (readEnv('GITHUB_OAUTH_DEBUG') || '').toLowerCase();
 const OAUTH_DEBUG = oauthDebugFlag ? ['1', 'true', 'on', 'yes'].includes(oauthDebugFlag) : true;
+const runtimeEnv = (readEnv('NODE_ENV') || readEnv('VERCEL_ENV') || 'development').toLowerCase();
+const IS_PRODUCTION = runtimeEnv === 'production';
 
 function logOAuth(event: string, details?: Record<string, unknown>) {
 	if (!OAUTH_DEBUG) return;
 	const payload = details ? JSON.stringify(details) : '';
 	console.info(`[oauth-callback] ${new Date().toISOString()} ${event}${payload ? ' ' + payload : ''}`);
+}
+
+function redactSecrets(raw?: string | null): string | undefined {
+	if (!raw) return undefined;
+	return raw
+		.replace(/access_token=[^&\s"']+/gi, 'access_token=[REDACTED]')
+		.replace(/"access_token"\s*:\s*"[^"]*"/gi, '"access_token":"[REDACTED]"');
 }
 
 function normalizeBaseUrl(raw: string): string {
@@ -49,6 +58,17 @@ function resolveAppBase(req?: Request): {url: string; source: string} {
 	return {url: 'http://localhost:5173', source: 'fallback-default'};
 }
 
+function buildErrorResponse(status: number, message: string, debugData?: Record<string, unknown>): Response {
+	const body: Record<string, unknown> = {error: message};
+	if (!IS_PRODUCTION && debugData && Object.keys(debugData).length) {
+		body.debug = debugData;
+	}
+	return new Response(JSON.stringify(body), {
+		status,
+		headers: {'Content-Type': 'application/json'}
+	});
+}
+
 export const config = {runtime: 'nodejs'};
 
 export default async function (req: Request): Promise<Response> {
@@ -59,13 +79,9 @@ export default async function (req: Request): Promise<Response> {
 		parsedUrl = new URL(req.url);
 	} catch (parseErr: any) {
 		logOAuth('invalid-request-url', {requestId, error: parseErr?.message || 'unable to parse'});
-		return new Response(
-			JSON.stringify({error: 'Invalid request URL', details: parseErr?.message || 'failed to parse request url'}),
-			{
-				status: 400,
-				headers: {'Content-Type': 'application/json'}
-			}
-		);
+		return buildErrorResponse(400, 'Invalid request URL', {
+			error: parseErr?.message || 'failed to parse request url'
+		});
 	}
 	const code = parsedUrl.searchParams.get('code');
 	const state = parsedUrl.searchParams.get('state') || '';
@@ -79,10 +95,7 @@ export default async function (req: Request): Promise<Response> {
 	try {
 		if (!code) {
 			logOAuth('missing-code', {...logContextBase, durationMs: Date.now() - startedAt});
-			return new Response(JSON.stringify({error: 'Missing code'}), {
-				status: 400,
-				headers: {'Content-Type': 'application/json'}
-			});
+			return buildErrorResponse(400, 'Missing code');
 		}
 
 		const githubClientId = readEnv('GITHUB_CLIENT_ID');
@@ -97,17 +110,10 @@ export default async function (req: Request): Promise<Response> {
 		});
 		if (!clientId || !clientSecret) {
 			logOAuth('missing-env', {...logContextBase, durationMs: Date.now() - startedAt});
-			return new Response(
-				JSON.stringify({
-					error: 'Missing GitHub OAuth env vars',
-					hasClientId: !!clientId,
-					hasClientSecret: !!clientSecret
-				}),
-				{
-					status: 500,
-					headers: {'Content-Type': 'application/json'}
-				}
-			);
+			return buildErrorResponse(500, 'Missing GitHub OAuth env vars', {
+				hasClientId: !!clientId,
+				hasClientSecret: !!clientSecret
+			});
 		}
 
 		const timeoutRaw = readEnv('GITHUB_OAUTH_TIMEOUT_MS');
@@ -135,10 +141,7 @@ export default async function (req: Request): Promise<Response> {
 				error: isAbort ? 'timeout' : fetchError?.message || 'fetch failed'
 			});
 			if (isAbort) {
-				return new Response(
-					JSON.stringify({error: 'GitHub token exchange timed out'}),
-					{status: 504, headers: {'Content-Type': 'application/json'}}
-				);
+				return buildErrorResponse(504, 'GitHub token exchange timed out');
 			}
 			throw fetchError;
 		}
@@ -150,22 +153,16 @@ export default async function (req: Request): Promise<Response> {
 		});
 		if (!tokenRes.ok) {
 			const text = await tokenRes.text();
+			const bodyPreview = redactSecrets(text)?.slice(0, 200);
 			logOAuth('exchange-non-ok', {
 				...logContextBase,
 				status: tokenRes.status,
-				bodyPreview: text.slice(0, 200)
+				bodyPreview
 			});
-			return new Response(
-				JSON.stringify({
-					error: 'GitHub token request failed',
-					status: tokenRes.status,
-					details: text.slice(0, 200)
-				}),
-				{
-					status: 502,
-					headers: {'Content-Type': 'application/json'}
-				}
-			);
+			return buildErrorResponse(502, 'GitHub token request failed', {
+				status: tokenRes.status,
+				bodyPreview
+			});
 		}
 
 		const tokenResClone = tokenRes.clone();
@@ -174,31 +171,29 @@ export default async function (req: Request): Promise<Response> {
 			tokenJson = (await tokenRes.json()) as {access_token?: string; error?: string};
 		} catch (parseErr: any) {
 			const fallbackText = await tokenResClone.text();
+			const bodyPreview = redactSecrets(fallbackText)?.slice(0, 200);
 			logOAuth('exchange-parse-error', {
 				...logContextBase,
 				durationMs: Date.now() - startedAt,
 				error: parseErr?.message || 'unable to parse json',
-				bodyPreview: fallbackText.slice(0, 200)
+				bodyPreview
 			});
-			return new Response(
-				JSON.stringify({error: 'Invalid response from GitHub token exchange'}),
-				{status: 502, headers: {'Content-Type': 'application/json'}}
-			);
+			return buildErrorResponse(502, 'Invalid response from GitHub token exchange', {
+				error: parseErr?.message || 'unable to parse json',
+				bodyPreview
+			});
 		}
 
 		const accessToken = tokenJson?.access_token;
 		if (!accessToken) {
-			logOAuth('missing-access-token', {...logContextBase, durationMs: Date.now() - startedAt});
-			return new Response(
-				JSON.stringify({
-					error: 'No access_token in response',
-					details: tokenJson
-				}),
-				{
-					status: 502,
-					headers: {'Content-Type': 'application/json'}
-				}
-			);
+			logOAuth('missing-access-token', {
+				...logContextBase,
+				durationMs: Date.now() - startedAt,
+				githubError: tokenJson?.error || null
+			});
+			return buildErrorResponse(502, 'No access_token in response', {
+				hasErrorField: typeof tokenJson?.error === 'string'
+			});
 		}
 
 		const {url, source: appBaseSource} = resolveAppBase(req);
@@ -219,16 +214,9 @@ export default async function (req: Request): Promise<Response> {
 			durationMs: Date.now() - startedAt,
 			error: e?.message || 'OAuth callback failed'
 		});
-		return new Response(
-			JSON.stringify({
-				error: e?.message || 'OAuth callback failed',
-				name: e?.name,
-				stack: e?.stack
-			}),
-			{
-				status: 500,
-				headers: {'Content-Type': 'application/json'}
-			}
-		);
+		return buildErrorResponse(500, 'OAuth callback failed', {
+			error: e?.message || 'OAuth callback failed',
+			name: e?.name
+		});
 	}
 }
