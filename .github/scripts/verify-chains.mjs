@@ -1,12 +1,12 @@
 import fs from 'fs-extra';
-import path from 'path';
+import path from 'node:path';
 
 const DataDirectory = './chains';
 const IndexName = 'index.json';
 
 function validate(directory) {
 	let allValid = true;
-	for (let name of fs.readdirSync(directory)) {
+	for (const name of fs.readdirSync(directory)) {
 		if (name.startsWith('.') || name === IndexName || name === 'node_modules') continue;
 		const file = path.join(directory, name);
 		const stat = fs.lstatSync(file);
@@ -29,11 +29,11 @@ function validate(directory) {
 				} else {
 					const svgValue = fs.readFileSync(path.join(file, 'logo.svg'));
 					if (
-						svgValue.includes(`data:image/png;base64`) ||
-						svgValue.includes(`data:img/png;base64`) ||
-						svgValue.includes(`data:image/jpeg;base64`) ||
-						svgValue.includes(`data:img/jpeg;base64`) ||
-						svgValue.includes(`href="http`)
+						svgValue.includes('data:image/png;base64') ||
+						svgValue.includes('data:img/png;base64') ||
+						svgValue.includes('data:image/jpeg;base64') ||
+						svgValue.includes('data:img/jpeg;base64') ||
+						svgValue.includes('href="http')
 					) {
 						console.error(`Error: "${file}" logo.svg contains base64 encoded image.`);
 						allValid = false;
