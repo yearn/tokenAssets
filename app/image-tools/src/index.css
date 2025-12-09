@@ -1,9 +1,0 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-/* App base styles */
-html, body, #root {
-  height: 100%;
-}
-
