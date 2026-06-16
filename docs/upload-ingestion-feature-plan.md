@@ -16,7 +16,7 @@ This document outlines a minimal, efficient implementation to add a small web UI
   - `tokens/<chainId>/<address>/` with `logo.svg`, `logo-32.png`, `logo-128.png`.
   - `chains/<chainId>/` (or `chains/btcm/`) for chain logos (same filenames).
   - PNGs must be exactly 32×32 and 128×128.
-  - Addresses lowercase for EVM; case-sensitive for Solana (`1151111081099710`).
+  - Addresses lowercase for EVM.
 - Reuse `scripts/ingestTokens.js` and `scripts/token-images-to-ingest/` for ingestion.
 - Frontend is a Vite + TypeScript + TanStack app (generated like `../app-generator/create-app.js`), living under `app/`.
 - Server endpoints live in a standalone Node server (Express) under `app/image-tools/server` so `_config/nodeAPI` remains a standalone, unchanged piece of the repo.
@@ -111,7 +111,7 @@ This document outlines a minimal, efficient implementation to add a small web UI
 2. API Handler
 
 - Parse `FormData` safely and normalize inputs according to conventions:
-  - Lowercase EVM addresses; preserve Solana case when `chainId === 1151111081099710`.
+  - Lowercase EVM addresses.
   - Accept `chainId` as string to allow `btcm`.
 - Validate images server‑side (PNG dimensions, count, names) and reject with actionable messages.
 - Write files into `scripts/token-images-to-ingest/<slug>/`.
@@ -197,7 +197,7 @@ This document outlines a minimal, efficient implementation to add a small web UI
 
 - Inline SVG optimization (SVGO) and automated PNG dimension fix (sharp/rsvg-convert) behind a toggle.
 - Multi‑asset batch uploads (multiple tokens per PR).
-- Support Solana address case preservation and automatic EVM checksum validation.
+- Automatic EVM checksum validation.
 - GitHub App flow (branch + PR without local git), creating blobs/trees directly via API for serverless environments.
 - Pre‑merge CI check to validate image sizes and naming in PRs.
 

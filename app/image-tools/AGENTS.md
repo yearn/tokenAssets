@@ -20,7 +20,7 @@
 - Indentation: tabs, width 4 (`.editorconfig`).
 - Prettier: single quotes, semicolons, 120‑column width.
 - Token asset files: exactly `logo.svg`, `logo-32.png`, `logo-128.png`.
-- Addresses: EVM lowercase; Solana case‑sensitive (e.g., `1151111081099710`).
+- Addresses: EVM lowercase.
 - Directories: numeric `chainId`; addresses under the chain folder.
 
 ## Testing Guidelines
