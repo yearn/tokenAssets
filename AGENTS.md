@@ -26,7 +26,7 @@ There are multiple different apps and elements in this repo. Please read careful
 - Indentation: tabs, width 4 (`.editorconfig`).
 - Prettier: single quotes, semicolons, 120 col width.
 - Asset files per token: `logo.svg`, `logo-32.png`, `logo-128.png`.
-- Addresses: lowercase for EVM chains; case‑sensitive for Solana (`1151111081099710`).
+- Addresses: lowercase for EVM chains.
 - Directory names: numeric `chainId` (or `btcm`).
 
 ## Testing Guidelines
