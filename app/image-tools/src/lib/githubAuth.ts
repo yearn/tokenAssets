@@ -13,6 +13,7 @@ export function buildAuthorizeUrl(clientId: string, state: string, redirectUri =
 	url.searchParams.set('state', state);
 	url.searchParams.set('scope', 'public_repo');
 	url.searchParams.set('redirect_uri', redirectUri);
+	url.searchParams.set('prompt', 'select_account');
 	return url.toString();
 }
 
