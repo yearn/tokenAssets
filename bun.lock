@@ -6,12 +6,12 @@
       "name": "tokenlistooor_asset",
       "dependencies": {
         "@fleekxyz/sdk": "^0.7.3",
-        "@types/node": "^25.9.3",
         "ethers": "^6.0.8",
         "fs-extra": "^9.1.0",
         "keccak": "^3.0.4",
       },
       "devDependencies": {
+        "@types/node": "^25.9.3",
         "next": "14.2.35",
         "prettier": "3.0.3",
         "styled-jsx": "^5.1.2",

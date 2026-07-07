@@ -6,10 +6,12 @@ import {
 	storeAuthState,
 	clearStoredAuth,
 	buildAuthorizeUrl,
+	getGithubCallbackUrl,
 	markAuthPending,
 	clearAuthPending,
 	readAuthPending
 } from '../lib/githubAuth';
+import {API_BASE_URL} from '../lib/api';
 
 function randomState(len = 20) {
 	const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
@@ -65,7 +67,7 @@ export const GithubSignIn: React.FC<Props> = ({token}) => {
 		storeAuthState(state);
 		markAuthPending();
 		setConnecting(true);
-		window.location.href = buildAuthorizeUrl(clientId, state);
+		window.location.href = buildAuthorizeUrl(clientId, state, getGithubCallbackUrl(API_BASE_URL));
 	};
 
 	const signOut = () => {

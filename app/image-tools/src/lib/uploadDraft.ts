@@ -32,23 +32,31 @@ const STORE_NAME = 'drafts';
 const DRAFT_KEY = 'current';
 
 export async function readUploadDraft(): Promise<UploadDraft | null> {
-	const db = await openDraftDb();
-	if (!db) return null;
-	return requestResult<UploadDraft | undefined>(
-		db.transaction(STORE_NAME, 'readonly').objectStore(STORE_NAME).get(DRAFT_KEY)
-	).then(result => result ?? null);
+	try {
+		const db = await openDraftDb();
+		if (!db) return null;
+		return requestResult<UploadDraft | undefined>(
+			db.transaction(STORE_NAME, 'readonly').objectStore(STORE_NAME).get(DRAFT_KEY)
+		).then(result => result ?? null);
+	} catch {
+		return null;
+	}
 }
 
 export async function saveUploadDraft(draft: UploadDraft): Promise<void> {
-	const db = await openDraftDb();
-	if (!db) return;
-	await requestResult(db.transaction(STORE_NAME, 'readwrite').objectStore(STORE_NAME).put(draft, DRAFT_KEY));
+	try {
+		const db = await openDraftDb();
+		if (!db) return;
+		await requestResult(db.transaction(STORE_NAME, 'readwrite').objectStore(STORE_NAME).put(draft, DRAFT_KEY));
+	} catch {}
 }
 
 export async function clearUploadDraft(): Promise<void> {
-	const db = await openDraftDb();
-	if (!db) return;
-	await requestResult(db.transaction(STORE_NAME, 'readwrite').objectStore(STORE_NAME).delete(DRAFT_KEY));
+	try {
+		const db = await openDraftDb();
+		if (!db) return;
+		await requestResult(db.transaction(STORE_NAME, 'readwrite').objectStore(STORE_NAME).delete(DRAFT_KEY));
+	} catch {}
 }
 
 function openDraftDb(): Promise<IDBDatabase | null> {
