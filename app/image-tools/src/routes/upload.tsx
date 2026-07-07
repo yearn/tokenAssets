@@ -54,6 +54,13 @@ type StatusState = {
 	prUrl?: string;
 };
 
+type UploadUrlParams = {
+	mode?: 'token' | 'chain';
+	chainId?: string;
+	address?: string;
+	name?: string;
+};
+
 const chainOptions = listKnownChains();
 
 function createAssetId(): string {
@@ -162,25 +169,34 @@ export const UploadComponent: React.FC = () => {
 
 	useEffect(() => {
 		let cancelled = false;
+		const urlParams = readUploadUrlParams();
 
 		const restoreDraft = async () => {
 			try {
 				const draft = await readUploadDraft();
-				if (!draft || cancelled) return;
+				if (cancelled) return;
+
+				if (!draft) {
+					applyUploadUrlParams(urlParams, setMode, setChainItems, setTokenItems);
+					return;
+				}
 
 				setMode(draft.mode);
 				const restoredChainItems = restoreChainDraftItems(draft);
-				setChainItems(restoredChainItems);
-				setTokenItems(
-					(draft.tokenItems.length ? draft.tokenItems : [createTokenItem()]).map(item => ({
+				const restoredTokenItems = (draft.tokenItems.length ? draft.tokenItems : [createTokenItem()]).map(
+					item => ({
 						...createTokenItem(),
 						...item,
 						preview: buildPreviewFromFiles(item.files),
 						resolvingName: false,
 						resolveError: '',
 						addressValid: !item.address || isEvmAddress(item.address)
-					}))
+					})
 				);
+				setChainItems(applyUrlParamsToChainItems(restoredChainItems, urlParams));
+				setTokenItems(applyUrlParamsToTokenItems(restoredTokenItems, urlParams));
+				if (urlParams.mode) setMode(urlParams.mode);
+				else if (urlParams.address) setMode('token');
 
 				restoredChainItems.forEach(item => {
 					if (item.genPng && item.files.svg) void generateChainPngs(item.id, item.files.svg);
@@ -189,6 +205,7 @@ export const UploadComponent: React.FC = () => {
 					if (item.genPng && item.files.svg) void generateTokenPngs(item.id, item.files.svg);
 				});
 			} catch {
+				if (!cancelled) applyUploadUrlParams(urlParams, setMode, setChainItems, setTokenItems);
 				// Draft restore is a convenience; keep the upload form usable if browser storage is unavailable.
 			} finally {
 				if (!cancelled) setDraftReady(true);
@@ -829,6 +846,63 @@ function restoreChainDraftItems(draft: Awaited<ReturnType<typeof readUploadDraft
 		...item,
 		preview: buildPreviewFromFiles(item.files)
 	}));
+}
+
+function readUploadUrlParams(): UploadUrlParams {
+	if (typeof window === 'undefined') return {};
+
+	const params = new URLSearchParams(window.location.search);
+	const modeParam = readFirstSearchValue(params, ['mode', 'type', 'target']);
+	const chainId = readFirstSearchValue(params, ['chain', 'chainId']);
+	const address = readFirstSearchValue(params, ['address', 'token']);
+	const name = readFirstSearchValue(params, ['name']);
+	const mode = modeParam === 'chain' ? 'chain' : modeParam === 'token' || address ? 'token' : undefined;
+
+	return {mode, chainId, address, name};
+}
+
+function readFirstSearchValue(params: URLSearchParams, keys: string[]): string | undefined {
+	for (const key of keys) {
+		const value = params.get(key)?.trim();
+		if (value) return value;
+	}
+	return undefined;
+}
+
+function applyUploadUrlParams(
+	params: UploadUrlParams,
+	setMode: React.Dispatch<React.SetStateAction<'token' | 'chain'>>,
+	setChainItems: React.Dispatch<React.SetStateAction<ChainItem[]>>,
+	setTokenItems: React.Dispatch<React.SetStateAction<TokenItem[]>>
+) {
+	setChainItems(items => applyUrlParamsToChainItems(items, params));
+	setTokenItems(items => applyUrlParamsToTokenItems(items, params));
+	if (params.mode) setMode(params.mode);
+	else if (params.address) setMode('token');
+}
+
+function applyUrlParamsToChainItems(items: ChainItem[], params: UploadUrlParams): ChainItem[] {
+	if (!params.chainId) return items;
+	const [firstItem, ...restItems] = items.length ? items : [createChainItem()];
+	return [{...firstItem, chainId: params.chainId}, ...restItems];
+}
+
+function applyUrlParamsToTokenItems(items: TokenItem[], params: UploadUrlParams): TokenItem[] {
+	if (!params.chainId && !params.address && !params.name) return items;
+
+	const [firstItem, ...restItems] = items.length ? items : [createTokenItem()];
+	const nextAddress = params.address ?? firstItem.address;
+	return [
+		{
+			...firstItem,
+			chainId: params.chainId ?? firstItem.chainId,
+			address: nextAddress,
+			name: params.name ?? firstItem.name,
+			addressValid: !nextAddress || isEvmAddress(nextAddress),
+			resolveError: ''
+		},
+		...restItems
+	];
 }
 
 function hasDuplicateChainIds(items: ChainItem[]): boolean {
