@@ -63,7 +63,6 @@ Environment Variables: None
 -   81457: Blast
 -   98866: Plume
 -   1380012617: Rari
--   1151111081099710: Solana
 -	btcm: Bitcoin
 
 ## Contributing
@@ -89,7 +88,7 @@ $ rsvg-convert -h 32 logo.svg > logo-32.png && rsvg-convert -h 128 logo.svg > lo
 ```
 
 Once ready, create a new directory with the chain ID, or use the existing one,
-and create a new directory for the token address (in lower case for EVM chains, or case sensitive for Solana) you are adding.
+and create a new directory for the token address in lowercase.
 
 Fill-in the details when creating the pull-request, and we'll merge it shortly!
 

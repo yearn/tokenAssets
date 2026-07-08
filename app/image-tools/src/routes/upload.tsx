@@ -1,1067 +1,501 @@
-import React, {Fragment, useEffect, useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {createRoute} from '@tanstack/react-router';
-import {rootRoute} from '../router';
-import {GithubSignIn} from '../components/GithubSignIn';
-import {API_BASE_URL} from '../lib/api';
-import {Dialog, Switch, Transition} from '@headlessui/react';
-import {getRpcUrl, isEvmAddress, listKnownChains} from '../lib/chains';
+import {Switch} from '@headlessui/react';
+import {AssetDropzone} from '../components/AssetDropzone';
+import {PreviewGrid} from '../components/PreviewGrid';
+import {PrReviewDialog} from '../components/PrReviewDialog';
 import {SegmentedToggle} from '../components/SegmentedToggle';
-import {AUTH_CHANGE_EVENT, TOKEN_STORAGE_KEY, readStoredToken} from '../lib/githubAuth';
+import {StatusBanner, type StatusTone} from '../components/StatusBanner';
+import {useGithubAuthToken} from '../hooks/useGithubAuth';
+import {API_BASE_URL} from '../lib/api';
+import {getRpcUrl, isEvmAddress, listKnownChains} from '../lib/chains';
+import {
+	type AssetFileKind,
+	type AssetFiles,
+	type PreviewMap,
+	dataUrlToFile,
+	generatePngPreviews,
+	revokePreviewMap,
+	revokePreviewUrl
+} from '../lib/imagePreview';
+import {clearUploadDraft, readUploadDraft, saveUploadDraft} from '../lib/uploadDraft';
+import {rootRoute} from '../router';
 
 type TokenItem = {
+	id: string;
 	chainId: string;
 	address: string;
-	name?: string;
+	name: string;
 	genPng: boolean;
-	files: {svg?: File; png32?: File; png128?: File};
-	preview: {svg?: string; png32?: string; png128?: string};
-	resolvingName?: boolean;
-	resolveError?: string;
+	files: AssetFiles;
+	preview: PreviewMap;
+	resolvingName: boolean;
+	resolveError: string;
 	addressValid?: boolean;
 };
 
-export const UploadComponent: React.FC = () => {
-	const [token, setToken] = useState<string | null>(() => readStoredToken());
-	const [mode, setMode] = useState<'token' | 'chain'>('token');
-	const [chainId, setChainId] = useState('');
-	const [chainGenPng, setChainGenPng] = useState(true);
-	// Chain single
-	const [chainFiles, setChainFiles] = useState<{svg?: File; png32?: File; png128?: File}>({});
-	const [chainPreview, setChainPreview] = useState<{svg?: string; png32?: string; png128?: string}>({});
-	// Token items
-	const [tokenItems, setTokenItems] = useState<TokenItem[]>([
-		{chainId: '', address: '', name: '', genPng: true, files: {}, preview: {}}
-	]);
+type ChainItem = {
+	id: string;
+	chainId: string;
+	genPng: boolean;
+	files: AssetFiles;
+	preview: PreviewMap;
+};
 
-	// PR review modal state
+type PrMetadata = {
+	title: string;
+	body: string;
+};
+
+type StatusState = {
+	tone: StatusTone;
+	title: string;
+	message?: string;
+	prUrl?: string;
+};
+
+type UploadUrlParams = {
+	mode?: 'token' | 'chain';
+	chainId?: string;
+	address?: string;
+	name?: string;
+};
+
+const chainOptions = listKnownChains();
+
+function createAssetId(): string {
+	return `asset-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function createTokenItem(): TokenItem {
+	return {
+		id: createAssetId(),
+		chainId: '',
+		address: '',
+		name: '',
+		genPng: true,
+		files: {},
+		preview: {},
+		resolvingName: false,
+		resolveError: ''
+	};
+}
+
+function createChainItem(): ChainItem {
+	return {
+		id: createAssetId(),
+		chainId: '',
+		genPng: true,
+		files: {},
+		preview: {}
+	};
+}
+
+export const UploadComponent: React.FC = () => {
+	const token = useGithubAuthToken();
+	const [mode, setMode] = useState<'token' | 'chain'>('token');
+	const [chainItems, setChainItems] = useState<ChainItem[]>(() => [createChainItem()]);
+	const [tokenItems, setTokenItems] = useState<TokenItem[]>(() => [createTokenItem()]);
 	const [reviewOpen, setReviewOpen] = useState(false);
 	const [prTitle, setPrTitle] = useState('');
 	const [prBody, setPrBody] = useState('');
 	const [submitting, setSubmitting] = useState(false);
+	const [status, setStatus] = useState<StatusState | null>(null);
+	const [draftReady, setDraftReady] = useState(false);
 
 	const canSubmit = useMemo(() => {
 		if (mode === 'chain') {
-			if (!chainId) return false;
-			if (!chainFiles.svg) return false;
-			if (!chainGenPng && (!chainFiles.png32 || !chainFiles.png128)) return false;
-			return true;
+			return chainItems.every(item => {
+				if (!item.chainId || !item.files.svg) return false;
+				return item.genPng
+					? !!item.preview.png32 && !!item.preview.png128
+					: !!item.files.png32 && !!item.files.png128;
+			});
 		}
-		if (!tokenItems.length) return false;
-		for (const it of tokenItems) {
-			if (!it.chainId || !it.address || !it.files.svg) return false;
-			if (!it.genPng && (!it.files.png32 || !it.files.png128)) return false;
+
+		return tokenItems.every(item => {
+			if (!item.chainId || !isEvmAddress(item.address) || !item.files.svg) return false;
+			return item.genPng
+				? !!item.preview.png32 && !!item.preview.png128
+				: !!item.files.png32 && !!item.files.png128;
+		});
+	}, [chainItems, mode, tokenItems]);
+
+	const setTokenItem = (id: string, updater: (item: TokenItem) => TokenItem) => {
+		setTokenItems(items => items.map(item => (item.id === id ? updater(item) : item)));
+	};
+
+	const setChainItem = (id: string, updater: (item: ChainItem) => ChainItem) => {
+		setChainItems(items => items.map(item => (item.id === id ? updater(item) : item)));
+	};
+
+	const setTokenFile = (id: string, kind: AssetFileKind, file: File) => {
+		const item = tokenItems.find(current => current.id === id);
+		setTokenItem(id, current => applyFileToToken(current, kind, file));
+		if (kind === 'svg' && item?.genPng) void generateTokenPngs(id, file);
+	};
+
+	const setChainFile = (id: string, kind: AssetFileKind, file: File) => {
+		const item = chainItems.find(current => current.id === id);
+		setChainItem(id, current => applyFileToChain(current, kind, file));
+		if (kind === 'svg' && item?.genPng) void generateChainPngs(id, file);
+	};
+
+	const generateTokenPngs = async (id: string, svgFile: File) => {
+		try {
+			const pngPreview = await generatePngPreviews(svgFile);
+			setTokenItem(id, item => ({...item, preview: {...item.preview, ...pngPreview}}));
+		} catch (error: any) {
+			setStatus({
+				tone: 'error',
+				title: 'Could not generate PNG previews',
+				message: error?.message || 'Try a simpler SVG or upload PNG files manually.'
+			});
 		}
-		return true;
-	}, [chainId, mode, chainFiles, tokenItems, chainGenPng]);
+	};
+
+	const generateChainPngs = async (id: string, svgFile: File) => {
+		try {
+			const pngPreview = await generatePngPreviews(svgFile);
+			setChainItem(id, item => ({...item, preview: {...item.preview, ...pngPreview}}));
+		} catch (error: any) {
+			setStatus({
+				tone: 'error',
+				title: 'Could not generate PNG previews',
+				message: error?.message || 'Try a simpler SVG or upload PNG files manually.'
+			});
+		}
+	};
 
 	useEffect(() => {
-		if (typeof window === 'undefined') return;
-		const update = () => setToken(readStoredToken());
-		const handler = (event: StorageEvent) => {
-			if (!event.key || event.key === TOKEN_STORAGE_KEY) update();
+		let cancelled = false;
+		const urlParams = readUploadUrlParams();
+
+		const restoreDraft = async () => {
+			try {
+				const draft = await readUploadDraft();
+				if (cancelled) return;
+
+				if (!draft) {
+					applyUploadUrlParams(urlParams, setMode, setChainItems, setTokenItems);
+					return;
+				}
+
+				setMode(draft.mode);
+				const restoredChainItems = restoreChainDraftItems(draft);
+				const restoredTokenItems = (draft.tokenItems.length ? draft.tokenItems : [createTokenItem()]).map(
+					item => ({
+						...createTokenItem(),
+						...item,
+						preview: buildPreviewFromFiles(item.files),
+						resolvingName: false,
+						resolveError: '',
+						addressValid: !item.address || isEvmAddress(item.address)
+					})
+				);
+				setChainItems(applyUrlParamsToChainItems(restoredChainItems, urlParams));
+				setTokenItems(applyUrlParamsToTokenItems(restoredTokenItems, urlParams));
+				if (urlParams.mode) setMode(urlParams.mode);
+				else if (urlParams.address) setMode('token');
+
+				restoredChainItems.forEach(item => {
+					if (item.genPng && item.files.svg) void generateChainPngs(item.id, item.files.svg);
+				});
+				draft.tokenItems.forEach(item => {
+					if (item.genPng && item.files.svg) void generateTokenPngs(item.id, item.files.svg);
+				});
+			} catch {
+				if (!cancelled) applyUploadUrlParams(urlParams, setMode, setChainItems, setTokenItems);
+				// Draft restore is a convenience; keep the upload form usable if browser storage is unavailable.
+			} finally {
+				if (!cancelled) setDraftReady(true);
+			}
 		};
-		const onAuth = () => update();
-		window.addEventListener('storage', handler);
-		window.addEventListener(AUTH_CHANGE_EVENT, onAuth);
+
+		void restoreDraft();
+
 		return () => {
-			window.removeEventListener('storage', handler);
-			window.removeEventListener(AUTH_CHANGE_EVENT, onAuth);
+			cancelled = true;
 		};
 	}, []);
 
-	// ---- Helpers: Token name lookup via JSON-RPC ----
-	async function fetchErc20Name(chainIdStr: string, address: string): Promise<string> {
-		const cid = Number(chainIdStr);
-		if (!cid || Number.isNaN(cid)) throw new Error('Invalid chain');
-		// Prefer server endpoint to avoid CORS and centralize env
-		try {
-			const url = new URL('/api/erc20-name', API_BASE_URL).toString();
-			const res = await fetch(url, {
-				method: 'POST',
-				headers: {'Content-Type': 'application/json'},
-				body: JSON.stringify({chainId: cid, address})
-			});
-			if (!res.ok) throw new Error(await res.text());
-			const j = await res.json();
-			if (j?.name) return j.name as string;
-		} catch (e) {
-			// fall through to direct RPC attempt
-		}
-		const rpc = getRpcUrl(cid);
-		if (!rpc) throw new Error('No RPC configured for this chain');
-		const data = '0x06fdde03';
-		const payload = {
-			jsonrpc: '2.0',
-			id: Math.floor(Math.random() * 1e9),
-			method: 'eth_call',
-			params: [{to: address, data}, 'latest']
-		};
-		const res = await fetch(rpc, {
-			method: 'POST',
-			headers: {'Content-Type': 'application/json'},
-			body: JSON.stringify(payload)
-		});
-		if (!res.ok) throw new Error(`RPC ${res.status}`);
-		const json = await res.json();
-		if (json?.error) throw new Error(json.error?.message || 'RPC error');
-		const result: string | undefined = json?.result;
-		if (!result || result === '0x') throw new Error('Empty result');
-		return decodeAbiString(result);
-	}
-
-	function decodeAbiString(resultHex: string): string {
-		const hex = resultHex.startsWith('0x') ? resultHex.slice(2) : resultHex;
-		// Dynamic string encoding: offset (32 bytes), length (32 bytes), data
-		if (hex.length >= 192) {
-			const lenHex = hex.slice(64, 128);
-			const len = parseInt(lenHex || '0', 16);
-			const dataHex = hex.slice(128, 128 + len * 2);
-			return hexToUtf8(dataHex);
-		}
-		// Fallback: bytes32-like (padded)
-		if (hex.length === 64) {
-			return hexToUtf8(hex.replace(/00+$/, ''));
-		}
-		// Last resort: try to interpret whatever is there
-		return hexToUtf8(hex);
-	}
-
-	function hexToUtf8(hex: string): string {
-		const bytes = hex.match(/.{1,2}/g)?.map(b => parseInt(b, 16)) || [];
-		return new TextDecoder().decode(new Uint8Array(bytes)).replace(/\u0000+$/, '');
-	}
-
-	const onChainFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-		const f = e.target.files?.[0];
-		if (!f) return;
-		const name = e.target.name as 'svg' | 'png32' | 'png128';
-		setChainFiles(prev => ({...prev, [name]: f}));
-		const url = URL.createObjectURL(f);
-		setChainPreview(p => ({...p, [name]: url}) as any);
-	};
-
-	const onTokenFileChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
-		const f = e.target.files?.[0];
-		if (!f) return;
-		const name = e.target.name as 'svg' | 'png32' | 'png128';
-		setTokenItems(prev => {
-			const arr = [...prev];
-			const item = {...arr[index]};
-			item.files = {...item.files, [name]: f};
-			const url = URL.createObjectURL(f);
-			item.preview = {...item.preview, [name]: url} as any;
-			arr[index] = item;
-			return arr;
-		});
-	};
-
-	// Generate PNG previews for chain when requested
 	useEffect(() => {
-		async function makePngPreviews(svgFile: File) {
-			const svgUrl = URL.createObjectURL(svgFile);
-			const img = new Image();
-			img.src = svgUrl;
-			await img.decode().catch(() => {});
-			const gen = async (size: number) => {
-				const canvas = document.createElement('canvas');
-				canvas.width = size;
-				canvas.height = size;
-				const ctx = canvas.getContext('2d');
-				if (!ctx) return '';
-				ctx.clearRect(0, 0, size, size);
-				const scale = Math.min(size / img.width, size / img.height);
-				const w = img.width * scale;
-				const h = img.height * scale;
-				const x = (size - w) / 2;
-				const y = (size - h) / 2;
-				ctx.drawImage(img, x, y, w, h);
-				return canvas.toDataURL('image/png');
-			};
-			const p32 = await gen(32);
-			const p128 = await gen(128);
-			setChainPreview(p => ({...p, png32: p32, png128: p128}));
-			URL.revokeObjectURL(svgUrl);
-		}
-		if (mode === 'chain' && chainGenPng && chainFiles.svg) {
-			makePngPreviews(chainFiles.svg);
-		}
-	}, [chainGenPng, chainFiles.svg, mode]);
-
-	// Generate PNG previews for each token item
-	useEffect(() => {
-		if (mode !== 'token') return;
-		tokenItems.forEach(async (it, idx) => {
-			if (!it.genPng || !it.files.svg) return;
-			const svgUrl = URL.createObjectURL(it.files.svg);
-			const img = new Image();
-			img.src = svgUrl;
-			await img.decode().catch(() => {});
-			const gen = async (size: number) => {
-				const canvas = document.createElement('canvas');
-				canvas.width = size;
-				canvas.height = size;
-				const ctx = canvas.getContext('2d');
-				if (!ctx) return '';
-				ctx.clearRect(0, 0, size, size);
-				const scale = Math.min(size / img.width, size / img.height);
-				const w = img.width * scale;
-				const h = img.height * scale;
-				const x = (size - w) / 2;
-				const y = (size - h) / 2;
-				ctx.drawImage(img, x, y, w, h);
-				return canvas.toDataURL('image/png');
-			};
-			const p32 = await gen(32);
-			const p128 = await gen(128);
-			setTokenItems(prev => {
-				const arr = [...prev];
-				const cur = arr[idx];
-				if (cur.preview.png32 === p32 && cur.preview.png128 === p128) return prev;
-				arr[idx] = {...cur, preview: {...cur.preview, png32: p32, png128: p128}};
-				return arr;
-			});
-			URL.revokeObjectURL(svgUrl);
-		});
-	}, [
-		JSON.stringify(
-			tokenItems.map(i => ({
-				svg: i.files.svg ? i.files.svg.name + ':' + i.files.svg.lastModified : '',
-				gen: i.genPng
+		if (!draftReady) return;
+		void saveUploadDraft({
+			version: 1,
+			savedAt: Date.now(),
+			mode,
+			chainItems: chainItems.map(item => ({
+				id: item.id,
+				chainId: item.chainId,
+				genPng: item.genPng,
+				files: item.files
+			})),
+			tokenItems: tokenItems.map(item => ({
+				id: item.id,
+				chainId: item.chainId,
+				address: item.address,
+				name: item.name,
+				genPng: item.genPng,
+				files: item.files
 			}))
-		),
-		mode
-	]);
+		});
+	}, [chainItems, draftReady, mode, tokenItems]);
 
-	function buildDefaultPrMetadata() {
+	const resolveTokenName = async (id: string) => {
+		const item = tokenItems.find(current => current.id === id);
+		if (!item || item.name || !item.chainId || !isEvmAddress(item.address)) return;
+
+		setTokenItem(id, current => ({...current, resolvingName: true, resolveError: ''}));
+		try {
+			const name = await fetchErc20Name(item.chainId, item.address);
+			setTokenItem(id, current => ({...current, name: current.name || name, resolvingName: false}));
+		} catch {
+			setTokenItem(id, current => ({
+				...current,
+				resolvingName: false,
+				resolveError: 'Could not fetch token name. Please verify the chain and address.'
+			}));
+		}
+	};
+
+	const resetFirstAsset = () => {
 		if (mode === 'token') {
-			const addressesForBody = tokenItems.map(i => (i.address?.toLowerCase?.() as string) || '').filter(Boolean);
-			const chainsForBody = tokenItems.map(i => i.chainId || chainId || '').map(String);
-			const uniqueChains = Array.from(new Set(chainsForBody.filter(Boolean)));
-			const title = `feat: add token assets (${addressesForBody.length})`;
-				const directoryLocations = addressesForBody.flatMap((addr, i) => [
-					`/token/${chainsForBody[i]}/${addr}/logo.svg`,
-					`/token/${chainsForBody[i]}/${addr}/logo-32.png`,
-					`/token/${chainsForBody[i]}/${addr}/logo-128.png`
-				]);
-			const body = [
-				`Chains: ${uniqueChains.join(', ')}`,
-				`Addresses: ${addressesForBody.join(', ')}`,
-				'',
-				'Directory Location of uploaded logos:',
-				...directoryLocations.map(u => `- ${u}`)
-			].join('\n');
-			return {title, body};
-		} else {
-			const title = `feat: add chain assets on ${chainId}`;
-			const sampleUrls = [
-				`/chain/${chainId}/logo.svg`,
-				`/chain/${chainId}/logo-32.png`,
-				`/chain/${chainId}/logo-128.png`
-			];
-			const body = [
-				`Chain: ${chainId}`,
-				'',
-				'Directory Location of uploaded logos:',
-				...sampleUrls.map(u => `- ${u}`)
-			].join('\n');
-			return {title, body};
+			tokenItems.forEach(item => revokePreviewMap(item.preview));
+			setTokenItems([createTokenItem()]);
+			return;
 		}
-	}
 
-	async function dataUrlToFile(dataUrl: string, filename: string, type = 'image/png'): Promise<File> {
-		const res = await fetch(dataUrl);
-		const blob = await res.blob();
-		return new File([blob], filename, {type});
-	}
+		chainItems.forEach(item => revokePreviewMap(item.preview));
+		setChainItems([createChainItem()]);
+	};
 
-	async function buildFormData(withPrMeta?: {title: string; body: string}) {
-		const body = new FormData();
-		body.append('target', mode);
-		body.append('chainId', chainId);
-		if (mode === 'token') {
-			for (let i = 0; i < tokenItems.length; i++) {
-				const it = tokenItems[i];
-				body.append(`chainId_${i}`, it.chainId);
-				if (it.address) body.append('address', it.address);
-				if (it.files.svg) body.append(`svg_${i}`, it.files.svg);
-				// Ensure PNGs are attached; if genPng is true and files are missing, use previews to create PNGs client-side.
-				const needPng32 = !it.files.png32 && !!it.preview.png32;
-				const needPng128 = !it.files.png128 && !!it.preview.png128;
-				if (needPng32) body.append(`png32_${i}`, await dataUrlToFile(it.preview.png32!, 'logo-32.png'));
-				if (needPng128) body.append(`png128_${i}`, await dataUrlToFile(it.preview.png128!, 'logo-128.png'));
-				// Also include any user-provided PNGs
-				if (it.files.png32) body.append(`png32_${i}`, it.files.png32);
-				if (it.files.png128) body.append(`png128_${i}`, it.files.png128);
-			}
-		} else {
-			if (chainFiles.svg) body.append('svg', chainFiles.svg);
-			// Ensure chain PNGs are attached; generate from previews if needed.
-			const needP32 = !chainFiles.png32 && !!chainPreview.png32;
-			const needP128 = !chainFiles.png128 && !!chainPreview.png128;
-			if (needP32) body.append('png32', await dataUrlToFile(chainPreview.png32!, 'logo-32.png'));
-			if (needP128) body.append('png128', await dataUrlToFile(chainPreview.png128!, 'logo-128.png'));
-			if (chainFiles.png32) body.append('png32', chainFiles.png32);
-			if (chainFiles.png128) body.append('png128', chainFiles.png128);
+	const clearTokenItem = (id: string, preserveId = false) => {
+		const item = tokenItems.find(current => current.id === id);
+		if (item) revokePreviewMap(item.preview);
+		setTokenItem(id, () => (preserveId ? {...createTokenItem(), id} : createTokenItem()));
+	};
+
+	const removeTokenItem = (id: string) => {
+		const item = tokenItems.find(current => current.id === id);
+		if (item) revokePreviewMap(item.preview);
+		setTokenItems(items => items.filter(current => current.id !== id));
+	};
+
+	const clearChainItem = (id: string, preserveId = false) => {
+		const item = chainItems.find(current => current.id === id);
+		if (item) revokePreviewMap(item.preview);
+		setChainItem(id, () => (preserveId ? {...createChainItem(), id} : createChainItem()));
+	};
+
+	const removeChainItem = (id: string) => {
+		const item = chainItems.find(current => current.id === id);
+		if (item) revokePreviewMap(item.preview);
+		setChainItems(items => items.filter(current => current.id !== id));
+	};
+
+	const openReview = (event: React.FormEvent) => {
+		event.preventDefault();
+		if (!token) {
+			setStatus({
+				tone: 'error',
+				title: 'Sign in with GitHub first',
+				message: 'GitHub access is required so the tool can create a branch and open a PR.'
+			});
+			return;
 		}
-		if (withPrMeta) {
-			body.append('prTitle', withPrMeta.title);
-			body.append('prBody', withPrMeta.body);
-		}
-		return body;
-	}
 
-	const onSubmit = async (e: React.FormEvent) => {
-		e.preventDefault();
-		if (!token) return alert('Sign in with GitHub first.');
-		const {title, body} = buildDefaultPrMetadata();
-		setPrTitle(title);
-		setPrBody(body);
+		if (mode === 'chain' && hasDuplicateChainIds(chainItems)) {
+			setStatus({
+				tone: 'error',
+				title: 'Duplicate chain IDs',
+				message: 'Each chain asset in the same upload needs a unique chain ID.'
+			});
+			return;
+		}
+
+		const metadata = buildDefaultPrMetadata(mode, tokenItems, chainItems);
+		setPrTitle(metadata.title);
+		setPrBody(metadata.body);
 		setReviewOpen(true);
 	};
 
-	async function confirmAndSubmit() {
-		if (!token) return alert('Sign in with GitHub first.');
+	const confirmAndSubmit = async () => {
+		if (!token) return;
 		setSubmitting(true);
+		setStatus({tone: 'info', title: 'Creating PR', message: 'Uploading images and preparing a GitHub branch.'});
+
 		try {
 			const reqUrl = new URL('/api/upload', API_BASE_URL).toString();
-			const form = await buildFormData({title: prTitle, body: prBody});
+			const form = await buildFormData({
+				mode,
+				chainItems,
+				tokenItems,
+				prMeta: {title: prTitle, body: prBody}
+			});
 			const res = await fetch(reqUrl, {method: 'POST', headers: {Authorization: `Bearer ${token}`}, body: form});
 			if (!res.ok) {
-				const ct = res.headers.get('content-type') || '';
-				let msg = '';
-				try {
-					if (ct.includes('application/json')) {
-						const j = await res.json();
-						msg = j?.error || JSON.stringify(j);
-					} else {
-						msg = await res.text();
-					}
-				} catch {}
-				alert(`Upload failed: ${msg || res.status}`);
+				setStatus({tone: 'error', title: 'Upload failed', message: await readApiError(res)});
 				return;
 			}
+
 			const json = await res.json();
-			if (json?.prUrl) {
-				window.open(json.prUrl, '_blank');
-			} else {
-				alert('Upload complete, PR created.');
-			}
-			// Reset form state after successful PR creation
+			setStatus({
+				tone: 'success',
+				title: 'Pull request created',
+				message: 'Review the generated PR on GitHub before merging.',
+				prUrl: json?.prUrl
+			});
 			setReviewOpen(false);
-			setTokenItems([{chainId: '', address: '', name: '', genPng: true, files: {}, preview: {}}]);
-			setChainId('');
-			setChainGenPng(true);
-			setChainFiles({});
-			setChainPreview({});
+			void clearUploadDraft();
+			tokenItems.forEach(item => revokePreviewMap(item.preview));
+			chainItems.forEach(item => revokePreviewMap(item.preview));
+			setTokenItems([createTokenItem()]);
+			setChainItems([createChainItem()]);
+		} catch (error: any) {
+			setStatus({tone: 'error', title: 'Upload failed', message: error?.message || 'Please try again.'});
 		} finally {
 			setSubmitting(false);
 		}
-	}
+	};
 
 	return (
-		<div className="mx-auto max-w-3xl">
+		<div className="mx-auto max-w-3xl space-y-4">
+			{status && (
+				<StatusBanner
+					tone={status.tone}
+					title={status.title}
+					message={status.message}
+					onDismiss={() => setStatus(null)}
+					action={
+						status.prUrl ? (
+							<a
+								href={status.prUrl}
+								target="_blank"
+								rel="noreferrer"
+								className="font-medium underline">
+								Open PR
+							</a>
+						) : null
+					}
+				/>
+			)}
+
 			<form
-				onSubmit={onSubmit}
+				onSubmit={openReview}
 				className="space-y-6 rounded-md border bg-white p-6 shadow-sm">
-				{/* First asset card */}
+				<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+					<h2 className="text-sm font-medium text-gray-700">Asset type</h2>
+					<SegmentedToggle
+						className="w-full sm:max-w-xs"
+						options={[
+							{value: 'token', label: 'Token Asset'},
+							{value: 'chain', label: 'Chain Asset'}
+						]}
+						value={mode}
+						onChange={value => setMode(value as 'token' | 'chain')}
+					/>
+				</div>
+
 				<div className="rounded-md border p-4">
-					<div className="mb-4 flex items-center justify-between">
+					<div className="mb-4">
 						<h3 className="text-base font-medium text-gray-900">First asset to add</h3>
-						<div className="flex items-center gap-2">
-							<button
-								type="button"
-								className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
-								onClick={() => {
-									if (mode === 'token') {
-										setTokenItems([
-											{chainId: '', address: '', name: '', genPng: true, files: {}, preview: {}}
-										]);
-									} else {
-										setChainId('');
-										setChainGenPng(true);
-										setChainFiles({});
-										setChainPreview({});
-									}
-								}}>
-								Clear
-							</button>
-							<SegmentedToggle
-								className="max-w-xs"
-								options={[
-									{value: 'token', label: 'Token Asset'},
-									{value: 'chain', label: 'Chain Asset'}
-								]}
-								value={mode}
-								onChange={v => setMode(v as 'token' | 'chain')}
-							/>
-						</div>
 					</div>
-					<div className="space-y-4">
-						<label className="block">
-							<span className="mb-1 block text-sm font-medium text-gray-700">Chain</span>
-							{mode === 'token' ? (
-								<input
-									className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-									list="chains-list"
-									value={tokenItems[0]?.chainId || ''}
-									onChange={e => {
-										const v = e.target.value;
-										setTokenItems(prev => [{...prev[0], chainId: v}, ...prev.slice(1)]);
-									}}
-									onBlur={async () => {
-										const it = tokenItems[0];
-										if (!it || !isEvmAddress(it.address) || it.name) return;
-										const cid = Number(it.chainId || chainId);
-										if (!cid || Number.isNaN(cid)) return;
-										try {
-											setTokenItems(prev => [
-												{...prev[0], resolvingName: true, resolveError: ''},
-												...prev.slice(1)
-											]);
-											const name = await fetchErc20Name(String(cid), it.address);
-											setTokenItems(prev => [
-												{
-													...prev[0],
-													resolvingName: false,
-													name: prev[0].name || name,
-													resolveError: ''
-												},
-												...prev.slice(1)
-											]);
-										} catch (err: any) {
-											setTokenItems(prev => [
-												{
-													...prev[0],
-													resolvingName: false,
-													resolveError: 'Could not fetch token name. Please verify address.'
-												},
-												...prev.slice(1)
-											]);
-										}
-									}}
-									placeholder="enter/select chain"
-								/>
-							) : (
-								<input
-									className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-									list="chains-list"
-									value={chainId}
-									onChange={e => setChainId(e.target.value)}
-									placeholder="enter/select chain"
-								/>
-							)}
-							<datalist id="chains-list">
-								{listKnownChains().map(c => (
-									<option
-										key={c.id}
-										value={String(c.id)}>
-										{c.name}
-									</option>
-								))}
-							</datalist>
-						</label>
-						{mode === 'token' && (
-							<>
-								<label className="block">
-									<span className="mb-1 block text-sm font-medium text-gray-700">Token Address</span>
-									<input
-										className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-										value={tokenItems[0]?.address || ''}
-										onChange={e =>
-											setTokenItems(prev => [
-												{
-													...prev[0],
-													address: e.target.value,
-													addressValid: isEvmAddress(e.target.value)
-												},
-												...prev.slice(1)
-											])
-										}
-										onBlur={async () => {
-											const it = tokenItems[0];
-											if (!it || !isEvmAddress(it.address)) return;
-											const cid = Number(it.chainId || chainId);
-											if (!cid || Number.isNaN(cid)) return;
-											try {
-												setTokenItems(prev => [
-													{...prev[0], resolvingName: true, resolveError: ''},
-													...prev.slice(1)
-												]);
-												const name = await fetchErc20Name(String(cid), it.address);
-												setTokenItems(prev => [
-													{
-														...prev[0],
-														resolvingName: false,
-														name: prev[0].name || name,
-														resolveError: ''
-													},
-													...prev.slice(1)
-												]);
-											} catch (err: any) {
-												setTokenItems(prev => [
-													{
-														...prev[0],
-														resolvingName: false,
-														resolveError:
-															'Could not fetch token name. Please verify address.'
-													},
-													...prev.slice(1)
-												]);
-											}
-										}}
-										placeholder="0x..."
-									/>
-									{tokenItems[0]?.resolvingName && (
-										<p className="mt-1 text-xs text-gray-500">Fetching name…</p>
-									)}
-									{tokenItems[0]?.resolveError && (
-										<p className="mt-1 text-xs text-red-600">{tokenItems[0]?.resolveError}</p>
-									)}
-									{tokenItems[0]?.address && tokenItems[0]?.addressValid === false && (
-										<p className="mt-1 text-xs text-red-600">Invalid EVM address format</p>
-									)}
-								</label>
-								<label className="block">
-									<span className="mb-1 block text-sm font-medium text-gray-700">
-										Name (optional)
-									</span>
-									<input
-										className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-										value={tokenItems[0]?.name || ''}
-										onChange={e =>
-											setTokenItems(prev => [
-												{...prev[0], name: e.target.value},
-												...prev.slice(1)
-											])
-										}
-										placeholder="auto-fills if resolvable"
-									/>
-								</label>
-							</>
-						)}
-						{/* SVG input row */}
-						<div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-							{/* Drop area */}
-							<div className="sm:col-span-2">
-								<div
-									onDragOver={e => e.preventDefault()}
-									onDrop={e => {
-										e.preventDefault();
-										const f = e.dataTransfer.files?.[0];
-										if (!f) return;
-										if (mode === 'token') {
-											onTokenFileChange(0, {target: {files: [f], name: 'svg'}} as any);
-										} else {
-											onChainFileChange({target: {files: [f], name: 'svg'}} as any);
-										}
-									}}
-									className="flex h-40 w-full items-center justify-center rounded-md border-2 border-dashed border-gray-300 bg-gray-50 text-sm text-gray-600">
-									{mode === 'token' ? (
-										tokenItems[0]?.preview.svg ? (
-											<img
-												src={tokenItems[0]?.preview.svg}
-												className="max-h-36"
-											/>
-										) : (
-											<span>Drag & Drop SVG here</span>
-										)
-									) : chainPreview.svg ? (
-										<img
-											src={chainPreview.svg}
-											className="max-h-36"
-										/>
-									) : (
-										<span>Drag & Drop SVG here</span>
-									)}
-								</div>
-							</div>
-							{/* Extras column */}
-							<div className="space-y-3">
-								<div className="flex items-center justify-between">
-									<span className="text-sm text-gray-700">Generate PNGs</span>
-									<Switch
-										checked={mode === 'token' ? !!tokenItems[0]?.genPng : chainGenPng}
-										onChange={(v: boolean) => {
-											if (mode === 'token')
-												setTokenItems(prev => [{...prev[0], genPng: v}, ...prev.slice(1)]);
-											else setChainGenPng(v);
-										}}
-										className={`${
-											(mode === 'token' ? tokenItems[0]?.genPng : chainGenPng)
-												? 'bg-blue-600'
-												: 'bg-gray-200'
-										} relative inline-flex h-6 w-11 items-center rounded-full transition`}>
-										<span
-											className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
-												(mode === 'token' ? tokenItems[0]?.genPng : chainGenPng)
-													? 'translate-x-6'
-													: 'translate-x-1'
-											}`}
-										/>
-									</Switch>
-								</div>
-								<div>
-									<button
-										type="button"
-										className="w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
-										onClick={() => {
-											const input = document.createElement('input');
-											input.type = 'file';
-											input.accept = 'image/svg+xml';
-											input.onchange = (ev: any) => {
-												const f = ev.target.files?.[0];
-												if (!f) return;
-												if (mode === 'token')
-													onTokenFileChange(0, {target: {files: [f], name: 'svg'}} as any);
-												else onChainFileChange({target: {files: [f], name: 'svg'}} as any);
-											};
-											input.click();
-										}}>
-										Browse SVG…
-									</button>
-								</div>
-								{!(mode === 'token' ? tokenItems[0]?.genPng : chainGenPng) && (
-									<div className="space-y-2">
-										<label className="block text-xs text-gray-600">PNG 32x32</label>
-										<input
-											type="file"
-											accept="image/png"
-											onChange={e =>
-												mode === 'token'
-													? onTokenFileChange(0, {
-															...e,
-															target: {...e.target, name: 'png32'}
-													  } as any)
-													: onChainFileChange({
-															...e,
-															target: {...e.target, name: 'png32'}
-													  } as any)
-											}
-										/>
-										<label className="block text-xs text-gray-600">PNG 128x128</label>
-										<input
-											type="file"
-											accept="image/png"
-											onChange={e =>
-												mode === 'token'
-													? onTokenFileChange(0, {
-															...e,
-															target: {...e.target, name: 'png128'}
-													  } as any)
-													: onChainFileChange({
-															...e,
-															target: {...e.target, name: 'png128'}
-													  } as any)
-											}
-										/>
-									</div>
-								)}
-							</div>
-						</div>
-						{/* Previews for first card */}
-						<div className="mt-4 rounded-md border bg-gray-50 p-3">
-							<p className="mb-2 text-sm font-medium text-gray-700">Previews</p>
-							<div className="grid grid-cols-3 gap-4">
-								<div>
-									<p className="mb-1 text-xs text-gray-600">SVG</p>
-									<div className="flex h-32 w-32 items-center justify-center overflow-hidden rounded-md border bg-white">
-										{(mode === 'token' ? tokenItems[0]?.preview.svg : chainPreview.svg) ? (
-											<img
-												src={
-													(mode === 'token'
-														? tokenItems[0]?.preview.svg
-														: chainPreview.svg) as string
-												}
-												alt="svg"
-												className="max-h-28 max-w-28"
-											/>
-										) : (
-											<span className="text-xs text-gray-400">—</span>
-										)}
-									</div>
-								</div>
-								<div>
-									<p className="mb-1 text-xs text-gray-600">PNG 32x32</p>
-									<div className="flex h-32 w-32 items-center justify-center overflow-hidden rounded-md border bg-white">
-										{(mode === 'token' ? tokenItems[0]?.preview.png32 : chainPreview.png32) ? (
-											<img
-												src={
-													(mode === 'token'
-														? tokenItems[0]?.preview.png32
-														: chainPreview.png32) as string
-												}
-												alt="png32"
-												className="h-8 w-8"
-											/>
-										) : (
-											<span className="text-xs text-gray-400">—</span>
-										)}
-									</div>
-								</div>
-								<div>
-									<p className="mb-1 text-xs text-gray-600">PNG 128x128</p>
-									<div className="flex h-32 w-32 items-center justify-center overflow-hidden rounded-md border bg-white">
-										{(mode === 'token' ? tokenItems[0]?.preview.png128 : chainPreview.png128) ? (
-											<img
-												src={
-													(mode === 'token'
-														? tokenItems[0]?.preview.png128
-														: chainPreview.png128) as string
-												}
-												alt="png128"
-												className="h-32 w-32"
-											/>
-										) : (
-											<span className="text-xs text-gray-400">—</span>
-										)}
-									</div>
-								</div>
-							</div>
-						</div>
+
+					{mode === 'token' ? (
+						<TokenAssetCard
+							item={tokenItems[0]}
+							index={0}
+							canRemove={false}
+							onChange={setTokenItem}
+							onFile={setTokenFile}
+							onResolveName={resolveTokenName}
+							onRemove={() => undefined}
+							onClear={id => clearTokenItem(id)}
+							onGeneratePngChange={(id, value) => {
+								setTokenItem(id, item => ({...item, genPng: value}));
+								const item = tokenItems.find(current => current.id === id);
+								if (value && item?.files.svg) void generateTokenPngs(id, item.files.svg);
+							}}
+						/>
+					) : (
+						<ChainAssetCard
+							item={chainItems[0]}
+							index={0}
+							canRemove={false}
+							onChange={setChainItem}
+							onFile={setChainFile}
+							onRemove={() => undefined}
+							onClear={id => clearChainItem(id)}
+							onGeneratePngChange={(id, value) => {
+								setChainItem(id, item => ({...item, genPng: value}));
+								const item = chainItems.find(current => current.id === id);
+								if (value && item?.files.svg) void generateChainPngs(id, item.files.svg);
+							}}
+						/>
+					)}
+					<div className="mt-4 flex justify-end border-t border-gray-200 pt-4">
+						<button
+							type="button"
+							className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+							onClick={resetFirstAsset}>
+							Clear
+						</button>
 					</div>
 				</div>
 
-				{/* Additional token asset cards */}
 				{mode === 'token' &&
-					tokenItems.slice(1).map((it, idx) => (
-						<div
-							key={idx + 1}
-							className="rounded-md border p-4">
-							<div className="mb-3 flex items-center justify-between">
-								<div className="text-sm font-medium text-gray-700">Token Asset #{idx + 2}</div>
-								<div className="flex items-center gap-3">
-									<button
-										type="button"
-										className="text-sm text-gray-600 hover:underline"
-										onClick={() =>
-											setTokenItems(p =>
-												p.map((x, i) =>
-													i === idx + 1
-														? {
-																chainId: '',
-																address: '',
-																name: '',
-																genPng: true,
-																files: {},
-																preview: {}
-														  }
-														: x
-												)
-											)
-										}>
-										Clear
-									</button>
-									<button
-										type="button"
-										className="text-sm text-red-600 hover:underline"
-										onClick={() => setTokenItems(p => p.filter((_, i) => i !== idx + 1))}>
-										Remove
-									</button>
-								</div>
-							</div>
-							<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-								<label className="block">
-									<span className="mb-1 block text-sm font-medium text-gray-700">Chain</span>
-									<input
-										className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-										list="chains-list"
-										value={it.chainId}
-										onChange={e =>
-											setTokenItems(prev =>
-												prev.map((x, i) =>
-													i === idx + 1 ? {...x, chainId: e.target.value} : x
-												)
-											)
-										}
-										onBlur={async () => {
-											const item = tokenItems[idx + 1];
-											if (!item || !isEvmAddress(item.address) || item.name) return;
-											const cid = Number(item.chainId || chainId);
-											if (!cid || Number.isNaN(cid)) return;
-											try {
-												setTokenItems(prev =>
-													prev.map((x, i) =>
-														i === idx + 1
-															? {...x, resolvingName: true, resolveError: ''}
-															: x
-													)
-												);
-												const name = await fetchErc20Name(String(cid), item.address);
-												setTokenItems(prev =>
-													prev.map((x, i) =>
-														i === idx + 1
-															? {
-																	...x,
-																	resolvingName: false,
-																	name: x.name || name,
-																	resolveError: ''
-															  }
-															: x
-													)
-												);
-											} catch (err: any) {
-												setTokenItems(prev =>
-													prev.map((x, i) =>
-														i === idx + 1
-															? {
-																	...x,
-																	resolvingName: false,
-																	resolveError:
-																		'Could not fetch token name. Please verify address.'
-															  }
-															: x
-													)
-												);
-											}
-										}}
-										placeholder="enter/select chain"
-									/>
-								</label>
-								<label className="block">
-									<span className="mb-1 block text-sm font-medium text-gray-700">Token Address</span>
-									<input
-										className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-										value={it.address}
-										onChange={e =>
-											setTokenItems(prev =>
-												prev.map((x, i) =>
-													i === idx + 1
-														? {
-																...x,
-																address: e.target.value,
-																addressValid: isEvmAddress(e.target.value)
-														  }
-														: x
-												)
-											)
-										}
-										onBlur={async () => {
-											const item = tokenItems[idx + 1];
-											if (!item || !isEvmAddress(item.address)) return;
-											const cid = Number(item.chainId || chainId);
-											if (!cid || Number.isNaN(cid)) return;
-											try {
-												setTokenItems(prev =>
-													prev.map((x, i) =>
-														i === idx + 1
-															? {...x, resolvingName: true, resolveError: ''}
-															: x
-													)
-												);
-												const name = await fetchErc20Name(String(cid), item.address);
-												setTokenItems(prev =>
-													prev.map((x, i) =>
-														i === idx + 1
-															? {
-																	...x,
-																	resolvingName: false,
-																	name: x.name || name,
-																	resolveError: ''
-															  }
-															: x
-													)
-												);
-											} catch (err: any) {
-												setTokenItems(prev =>
-													prev.map((x, i) =>
-														i === idx + 1
-															? {
-																	...x,
-																	resolvingName: false,
-																	resolveError:
-																		'Could not fetch token name. Please verify address.'
-															  }
-															: x
-													)
-												);
-											}
-										}}
-										placeholder="0x..."
-									/>
-									{it.resolvingName && <p className="mt-1 text-xs text-gray-500">Fetching name…</p>}
-									{it.resolveError && <p className="mt-1 text-xs text-red-600">{it.resolveError}</p>}
-									{it.address && it.addressValid === false && (
-										<p className="mt-1 text-xs text-red-600">Invalid EVM address format</p>
-									)}
-								</label>
-								<label className="block">
-									<span className="mb-1 block text-sm font-medium text-gray-700">
-										Name (optional)
-									</span>
-									<input
-										className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-										value={it.name || ''}
-										onChange={e =>
-											setTokenItems(prev =>
-												prev.map((x, i) => (i === idx + 1 ? {...x, name: e.target.value} : x))
-											)
-										}
-										placeholder="auto-fills if resolvable"
-									/>
-								</label>
-							</div>
-							<div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-3">
-								<div className="sm:col-span-2">
-									<div
-										onDragOver={e => e.preventDefault()}
-										onDrop={e => {
-											e.preventDefault();
-											const f = e.dataTransfer.files?.[0];
-											if (!f) return;
-											onTokenFileChange(idx + 1, {target: {files: [f], name: 'svg'}} as any);
-										}}
-										className="flex h-40 w-full items-center justify-center rounded-md border-2 border-dashed border-gray-300 bg-gray-50 text-sm text-gray-600">
-										{it.preview.svg ? (
-											<img
-												src={it.preview.svg}
-												className="max-h-36"
-											/>
-										) : (
-											<span>Drag & Drop SVG here</span>
-										)}
-									</div>
-								</div>
-								<div className="space-y-3">
-									<div className="flex items-center justify-between">
-										<span className="text-sm text-gray-700">Generate PNGs</span>
-										<Switch
-											checked={it.genPng}
-											onChange={(v: boolean) =>
-												setTokenItems(prev =>
-													prev.map((x, i) => (i === idx + 1 ? {...x, genPng: v} : x))
-												)
-											}
-											className={`${
-												it.genPng ? 'bg-blue-600' : 'bg-gray-200'
-											} relative inline-flex h-6 w-11 items-center rounded-full transition`}>
-											<span
-												className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
-													it.genPng ? 'translate-x-6' : 'translate-x-1'
-												}`}
-											/>
-										</Switch>
-									</div>
-									<button
-										type="button"
-										className="w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
-										onClick={() => {
-											const input = document.createElement('input');
-											input.type = 'file';
-											input.accept = 'image/svg+xml';
-											input.onchange = (ev: any) => {
-												const f = ev.target.files?.[0];
-												if (!f) return;
-												onTokenFileChange(idx + 1, {target: {files: [f], name: 'svg'}} as any);
-											};
-											input.click();
-										}}>
-										Browse SVG…
-									</button>
-									{!it.genPng && (
-										<div className="space-y-2">
-											<label className="block text-xs text-gray-600">PNG 32x32</label>
-											<input
-												type="file"
-												accept="image/png"
-												onChange={e =>
-													onTokenFileChange(idx + 1, {
-														...e,
-														target: {...e.target, name: 'png32'}
-													} as any)
-												}
-											/>
-											<label className="block text-xs text-gray-600">PNG 128x128</label>
-											<input
-												type="file"
-												accept="image/png"
-												onChange={e =>
-													onTokenFileChange(idx + 1, {
-														...e,
-														target: {...e.target, name: 'png128'}
-													} as any)
-												}
-											/>
-										</div>
-									)}
-								</div>
-							</div>
-							{/* Previews for additional token card */}
-							<div className="mt-4 rounded-md border bg-gray-50 p-3">
-								<p className="mb-2 text-sm font-medium text-gray-700">Previews</p>
-								<div className="grid grid-cols-3 gap-4">
-									<div>
-										<p className="mb-1 text-xs text-gray-600">SVG</p>
-										<div className="flex h-32 w-32 items-center justify-center overflow-hidden rounded-md border bg-white">
-											{it.preview.svg ? (
-												<img
-													src={it.preview.svg}
-													alt="svg"
-													className="max-h-28 max-w-28"
-												/>
-											) : (
-												<span className="text-xs text-gray-400">—</span>
-											)}
-										</div>
-									</div>
-									<div>
-										<p className="mb-1 text-xs text-gray-600">PNG 32x32</p>
-										<div className="flex h-32 w-32 items-center justify-center overflow-hidden rounded-md border bg-white">
-											{it.preview.png32 ? (
-												<img
-													src={it.preview.png32}
-													alt="png32"
-													className="h-8 w-8"
-												/>
-											) : (
-												<span className="text-xs text-gray-400">—</span>
-											)}
-										</div>
-									</div>
-									<div>
-										<p className="mb-1 text-xs text-gray-600">PNG 128x128</p>
-										<div className="flex h-32 w-32 items-center justify-center overflow-hidden rounded-md border bg-white">
-											{it.preview.png128 ? (
-												<img
-													src={it.preview.png128}
-													alt="png128"
-													className="h-32 w-32"
-												/>
-											) : (
-												<span className="text-xs text-gray-400">—</span>
-											)}
-										</div>
-									</div>
-								</div>
-							</div>
-						</div>
+					tokenItems.slice(1).map((item, index) => (
+						<TokenAssetCard
+							key={item.id}
+							item={item}
+							index={index + 1}
+							canRemove
+							onChange={setTokenItem}
+							onFile={setTokenFile}
+							onResolveName={resolveTokenName}
+							onRemove={removeTokenItem}
+							onClear={id => clearTokenItem(id, true)}
+							onGeneratePngChange={(id, value) => {
+								setTokenItem(id, current => ({...current, genPng: value}));
+								const current = tokenItems.find(candidate => candidate.id === id);
+								if (value && current?.files.svg) void generateTokenPngs(id, current.files.svg);
+							}}
+						/>
 					))}
 
-				{mode === 'token' && (
-					<div>
-						<button
-							type="button"
-							className="mt-2 inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
-							onClick={() =>
-								setTokenItems(prev => [
-									...prev,
-									{
-										chainId: '',
-										address: '',
-										genPng: true,
-										files: {},
-										preview: {}
-									}
-								])
-							}>
-							+ Add Token Asset
-						</button>
-					</div>
-				)}
+				{mode === 'chain' &&
+					chainItems.slice(1).map((item, index) => (
+						<ChainAssetCard
+							key={item.id}
+							item={item}
+							index={index + 1}
+							canRemove
+							onChange={setChainItem}
+							onFile={setChainFile}
+							onRemove={removeChainItem}
+							onClear={id => clearChainItem(id, true)}
+							onGeneratePngChange={(id, value) => {
+								setChainItem(id, current => ({...current, genPng: value}));
+								const current = chainItems.find(candidate => candidate.id === id);
+								if (value && current?.files.svg) void generateChainPngs(id, current.files.svg);
+							}}
+						/>
+					))}
 
-				<div className="flex justify-end gap-3">
+				<div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+					<button
+						type="button"
+						className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+						onClick={() => {
+							if (mode === 'token') setTokenItems(items => [...items, createTokenItem()]);
+							else setChainItems(items => [...items, createChainItem()]);
+						}}>
+						{mode === 'token' ? '+ Add Token Asset' : '+ Add Chain Asset'}
+					</button>
 					<button
 						type="submit"
-						disabled={!canSubmit || !token}
+						disabled={!canSubmit || !token || submitting}
 						className="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
 						title={!token ? 'Sign in with GitHub to enable' : ''}>
 						Submit PR
@@ -1069,68 +503,567 @@ export const UploadComponent: React.FC = () => {
 				</div>
 			</form>
 
-			{/* PR Review Modal */}
-			<Transition
-				show={reviewOpen}
-				as={Fragment}>
-				<Dialog
-					as="div"
-					className="relative z-50"
-					onClose={() => (submitting ? null : setReviewOpen(false))}>
-					<div
-						className="fixed inset-0 bg-black/30"
-						aria-hidden="true"
-					/>
-					<div className="fixed inset-0 flex items-center justify-center p-4">
-						<Dialog.Panel className="w-full max-w-2xl rounded-lg bg-white p-6 shadow-xl">
-							<Dialog.Title className="text-lg font-semibold text-gray-900">
-								Review PR Details
-							</Dialog.Title>
-							<p className="mt-1 text-sm text-gray-600">
-								Edit the title and description before creating the PR.
-							</p>
-							<div className="mt-4 space-y-4">
-								<div>
-									<label className="mb-1 block text-sm font-medium text-gray-700">Title</label>
-									<input
-										className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-										value={prTitle}
-										onChange={e => setPrTitle(e.target.value)}
-									/>
-								</div>
-								<div>
-									<label className="mb-1 block text-sm font-medium text-gray-700">Description</label>
-									<textarea
-										rows={10}
-										className="block w-full rounded-md border-gray-300 font-mono text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500"
-										value={prBody}
-										onChange={e => setPrBody(e.target.value)}
-									/>
-								</div>
-							</div>
-							<div className="mt-6 flex items-center justify-end gap-3">
-								<button
-									type="button"
-									className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:opacity-50"
-									onClick={() => setReviewOpen(false)}
-									disabled={submitting}>
-									Cancel
-								</button>
-								<button
-									type="button"
-									className="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-									onClick={confirmAndSubmit}
-									disabled={submitting}>
-									{submitting ? 'Submitting…' : 'Create PR'}
-								</button>
-							</div>
-						</Dialog.Panel>
-					</div>
-				</Dialog>
-			</Transition>
+			<PrReviewDialog
+				open={reviewOpen}
+				title={prTitle}
+				body={prBody}
+				submitting={submitting}
+				onTitleChange={setPrTitle}
+				onBodyChange={setPrBody}
+				onCancel={() => setReviewOpen(false)}
+				onConfirm={confirmAndSubmit}
+			/>
 		</div>
 	);
 };
+
+type TokenAssetCardProps = {
+	item: TokenItem;
+	index: number;
+	canRemove: boolean;
+	onChange: (id: string, updater: (item: TokenItem) => TokenItem) => void;
+	onFile: (id: string, kind: AssetFileKind, file: File) => void;
+	onGeneratePngChange: (id: string, value: boolean) => void;
+	onResolveName: (id: string) => void;
+	onRemove: (id: string) => void;
+	onClear: (id: string) => void;
+};
+
+const TokenAssetCard: React.FC<TokenAssetCardProps> = ({
+	item,
+	index,
+	canRemove,
+	onChange,
+	onFile,
+	onGeneratePngChange,
+	onResolveName,
+	onRemove,
+	onClear
+}) => {
+	const label = index === 0 ? 'token asset' : `token asset ${index + 1}`;
+
+	return (
+		<div className={index === 0 ? 'space-y-4' : 'rounded-md border p-4'}>
+			{index > 0 && (
+				<div className="mb-3">
+					<div className="text-sm font-medium text-gray-700">Token Asset #{index + 1}</div>
+				</div>
+			)}
+			<div className="space-y-4">
+				<ChainInput
+					value={item.chainId}
+					onChange={value => onChange(item.id, current => ({...current, chainId: value}))}
+					onBlur={() => onResolveName(item.id)}
+				/>
+				<label className="block">
+					<span className="mb-1 block text-sm font-medium text-gray-700">Token Address</span>
+					<input
+						className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+						value={item.address}
+						onChange={event =>
+							onChange(item.id, current => ({
+								...current,
+								address: event.target.value,
+								addressValid: !event.target.value || isEvmAddress(event.target.value)
+							}))
+						}
+						onBlur={() => onResolveName(item.id)}
+						placeholder="0x..."
+					/>
+					{item.resolvingName && <p className="mt-1 text-xs text-gray-500">Fetching name...</p>}
+					{item.resolveError && <p className="mt-1 text-xs text-red-600">{item.resolveError}</p>}
+					{item.address && item.addressValid === false && (
+						<p className="mt-1 text-xs text-red-600">Invalid EVM address format</p>
+					)}
+				</label>
+				<label className="block">
+					<span className="mb-1 block text-sm font-medium text-gray-700">Name (optional)</span>
+					<input
+						className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+						value={item.name}
+						onChange={event => onChange(item.id, current => ({...current, name: event.target.value}))}
+						placeholder="auto-fills if resolvable"
+					/>
+				</label>
+			</div>
+			<AssetFileFields
+				label={label}
+				genPng={item.genPng}
+				files={item.files}
+				preview={item.preview}
+				onFile={(kind, file) => onFile(item.id, kind, file)}
+				onGeneratePngChange={value => onGeneratePngChange(item.id, value)}
+			/>
+			{index > 0 && (
+				<div className="mt-4 flex justify-end gap-3 border-t border-gray-200 pt-4">
+					<button
+						type="button"
+						className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+						onClick={() => onClear(item.id)}>
+						Clear
+					</button>
+					{canRemove && (
+						<button
+							type="button"
+							className="rounded-md border border-red-200 bg-white px-3 py-1.5 text-sm font-medium text-red-600 shadow-sm hover:bg-red-50"
+							onClick={() => onRemove(item.id)}>
+							Remove
+						</button>
+					)}
+				</div>
+			)}
+		</div>
+	);
+};
+
+type ChainAssetCardProps = {
+	item: ChainItem;
+	index: number;
+	canRemove: boolean;
+	onChange: (id: string, updater: (item: ChainItem) => ChainItem) => void;
+	onFile: (id: string, kind: AssetFileKind, file: File) => void;
+	onGeneratePngChange: (id: string, value: boolean) => void;
+	onRemove: (id: string) => void;
+	onClear: (id: string) => void;
+};
+
+const ChainAssetCard: React.FC<ChainAssetCardProps> = ({
+	item,
+	index,
+	canRemove,
+	onChange,
+	onFile,
+	onGeneratePngChange,
+	onRemove,
+	onClear
+}) => {
+	const label = index === 0 ? 'chain asset' : `chain asset ${index + 1}`;
+
+	return (
+		<div className={index === 0 ? 'space-y-4' : 'rounded-md border p-4'}>
+			{index > 0 && (
+				<div className="mb-3">
+					<div className="text-sm font-medium text-gray-700">Chain Asset #{index + 1}</div>
+				</div>
+			)}
+			<ChainInput
+				value={item.chainId}
+				onChange={value => onChange(item.id, current => ({...current, chainId: value}))}
+			/>
+			<AssetFileFields
+				label={label}
+				genPng={item.genPng}
+				files={item.files}
+				preview={item.preview}
+				onFile={(kind, file) => onFile(item.id, kind, file)}
+				onGeneratePngChange={value => onGeneratePngChange(item.id, value)}
+			/>
+			{index > 0 && (
+				<div className="mt-4 flex justify-end gap-3 border-t border-gray-200 pt-4">
+					<button
+						type="button"
+						className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+						onClick={() => onClear(item.id)}>
+						Clear
+					</button>
+					{canRemove && (
+						<button
+							type="button"
+							className="rounded-md border border-red-200 bg-white px-3 py-1.5 text-sm font-medium text-red-600 shadow-sm hover:bg-red-50"
+							onClick={() => onRemove(item.id)}>
+							Remove
+						</button>
+					)}
+				</div>
+			)}
+		</div>
+	);
+};
+
+type AssetFileFieldsProps = {
+	label: string;
+	genPng: boolean;
+	files: AssetFiles;
+	preview: PreviewMap;
+	onFile: (kind: AssetFileKind, file: File) => void;
+	onGeneratePngChange: (value: boolean) => void;
+};
+
+const AssetFileFields: React.FC<AssetFileFieldsProps> = ({
+	label,
+	genPng,
+	files,
+	preview,
+	onFile,
+	onGeneratePngChange
+}) => {
+	return (
+		<div className="space-y-4">
+			<AssetDropzone
+				label={`Upload SVG for ${label}`}
+				accept="image/svg+xml"
+				previewUrl={preview.svg}
+				previewAlt={`${label} SVG preview`}
+				emptyText="Drag and drop SVG here"
+				onFile={file => onFile('svg', file)}
+			/>
+			<div className="space-y-3 rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
+				<div className="flex items-center justify-between gap-3">
+					<span className="text-sm text-gray-700">Generate PNGs</span>
+					<Switch
+						checked={genPng}
+						onChange={onGeneratePngChange}
+						className={`${
+							genPng ? 'bg-blue-600' : 'bg-gray-200'
+						} relative inline-flex h-6 w-11 items-center rounded-full transition focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`}>
+						<span
+							className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
+								genPng ? 'translate-x-6' : 'translate-x-1'
+							}`}
+						/>
+					</Switch>
+				</div>
+				{!genPng && (
+					<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+						<FileInput
+							label="PNG 32x32"
+							file={files.png32}
+							onFile={file => onFile('png32', file)}
+						/>
+						<FileInput
+							label="PNG 128x128"
+							file={files.png128}
+							onFile={file => onFile('png128', file)}
+						/>
+					</div>
+				)}
+			</div>
+			<PreviewGrid
+				preview={preview}
+				label={label}
+			/>
+		</div>
+	);
+};
+
+type FileInputProps = {
+	label: string;
+	file?: File;
+	onFile: (file: File) => void;
+};
+
+const FileInput: React.FC<FileInputProps> = ({label, file, onFile}) => {
+	return (
+		<label className="block">
+			<span className="mb-1 block text-xs font-medium text-gray-600">{label}</span>
+			<input
+				type="file"
+				accept="image/png"
+				className="block w-full text-sm text-gray-700 file:mr-3 file:rounded-md file:border file:border-gray-300 file:bg-white file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-gray-700 hover:file:bg-gray-50"
+				onChange={event => {
+					const nextFile = event.target.files?.[0];
+					if (nextFile) onFile(nextFile);
+				}}
+			/>
+			{file && <span className="mt-1 block truncate text-xs text-gray-500">{file.name}</span>}
+		</label>
+	);
+};
+
+type ChainInputProps = {
+	value: string;
+	onChange: (value: string) => void;
+	onBlur?: () => void;
+};
+
+const ChainInput: React.FC<ChainInputProps> = ({value, onChange, onBlur}) => {
+	return (
+		<label className="block">
+			<span className="mb-1 block text-sm font-medium text-gray-700">Chain</span>
+			<input
+				className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+				list="chains-list"
+				value={value}
+				onChange={event => onChange(event.target.value)}
+				onBlur={onBlur}
+				placeholder="enter/select chain"
+			/>
+			<datalist id="chains-list">
+				{chainOptions.map(chain => (
+					<option
+						key={chain.id}
+						value={String(chain.id)}>
+						{chain.name}
+					</option>
+				))}
+			</datalist>
+		</label>
+	);
+};
+
+function applyFileToToken(item: TokenItem, kind: AssetFileKind, file: File): TokenItem {
+	revokePreviewUrl(item.preview[kind]);
+	return {
+		...item,
+		files: {...item.files, [kind]: file},
+		preview: {...item.preview, [kind]: URL.createObjectURL(file)}
+	};
+}
+
+function applyFileToChain(item: ChainItem, kind: AssetFileKind, file: File): ChainItem {
+	revokePreviewUrl(item.preview[kind]);
+	return {
+		...item,
+		files: {...item.files, [kind]: file},
+		preview: {...item.preview, [kind]: URL.createObjectURL(file)}
+	};
+}
+
+function buildPreviewFromFiles(files: AssetFiles): PreviewMap {
+	return {
+		svg: files.svg ? URL.createObjectURL(files.svg) : undefined,
+		png32: files.png32 ? URL.createObjectURL(files.png32) : undefined,
+		png128: files.png128 ? URL.createObjectURL(files.png128) : undefined
+	};
+}
+
+function restoreChainDraftItems(draft: Awaited<ReturnType<typeof readUploadDraft>>): ChainItem[] {
+	if (!draft) return [createChainItem()];
+	const draftItems =
+		draft.chainItems && draft.chainItems.length
+			? draft.chainItems
+			: [
+					{
+						id: createAssetId(),
+						chainId: draft.chainId || '',
+						genPng: draft.chainGenPng ?? true,
+						files: draft.chainFiles || {}
+					}
+			  ];
+
+	return draftItems.map(item => ({
+		...createChainItem(),
+		...item,
+		preview: buildPreviewFromFiles(item.files)
+	}));
+}
+
+function readUploadUrlParams(): UploadUrlParams {
+	if (typeof window === 'undefined') return {};
+
+	const params = new URLSearchParams(window.location.search);
+	const modeParam = readFirstSearchValue(params, ['mode', 'type', 'target']);
+	const chainId = readFirstSearchValue(params, ['chain', 'chainId']);
+	const address = readFirstSearchValue(params, ['address', 'token']);
+	const name = readFirstSearchValue(params, ['name']);
+	const mode = modeParam === 'chain' ? 'chain' : modeParam === 'token' || address ? 'token' : undefined;
+
+	return {mode, chainId, address, name};
+}
+
+function readFirstSearchValue(params: URLSearchParams, keys: string[]): string | undefined {
+	for (const key of keys) {
+		const value = params.get(key)?.trim();
+		if (value) return value;
+	}
+	return undefined;
+}
+
+function applyUploadUrlParams(
+	params: UploadUrlParams,
+	setMode: React.Dispatch<React.SetStateAction<'token' | 'chain'>>,
+	setChainItems: React.Dispatch<React.SetStateAction<ChainItem[]>>,
+	setTokenItems: React.Dispatch<React.SetStateAction<TokenItem[]>>
+) {
+	setChainItems(items => applyUrlParamsToChainItems(items, params));
+	setTokenItems(items => applyUrlParamsToTokenItems(items, params));
+	if (params.mode) setMode(params.mode);
+	else if (params.address) setMode('token');
+}
+
+function applyUrlParamsToChainItems(items: ChainItem[], params: UploadUrlParams): ChainItem[] {
+	if (!params.chainId) return items;
+	const [firstItem, ...restItems] = items.length ? items : [createChainItem()];
+	return [{...firstItem, chainId: params.chainId}, ...restItems];
+}
+
+function applyUrlParamsToTokenItems(items: TokenItem[], params: UploadUrlParams): TokenItem[] {
+	if (!params.chainId && !params.address && !params.name) return items;
+
+	const [firstItem, ...restItems] = items.length ? items : [createTokenItem()];
+	const nextAddress = params.address ?? firstItem.address;
+	return [
+		{
+			...firstItem,
+			chainId: params.chainId ?? firstItem.chainId,
+			address: nextAddress,
+			name: params.name ?? firstItem.name,
+			addressValid: !nextAddress || isEvmAddress(nextAddress),
+			resolveError: ''
+		},
+		...restItems
+	];
+}
+
+function hasDuplicateChainIds(items: ChainItem[]): boolean {
+	const chainIds = items.map(item => item.chainId.trim()).filter(Boolean);
+	return new Set(chainIds).size !== chainIds.length;
+}
+
+async function fetchErc20Name(chainIdStr: string, address: string): Promise<string> {
+	const cid = Number(chainIdStr);
+	if (!cid || Number.isNaN(cid)) throw new Error('Invalid chain');
+
+	try {
+		const url = new URL('/api/erc20-name', API_BASE_URL).toString();
+		const res = await fetch(url, {
+			method: 'POST',
+			headers: {'Content-Type': 'application/json'},
+			body: JSON.stringify({chainId: cid, address})
+		});
+		if (!res.ok) throw new Error(await res.text());
+		const json = await res.json();
+		if (json?.name) return json.name as string;
+	} catch {
+		// Fall through to a direct RPC attempt for local development when the API is unavailable.
+	}
+
+	const rpc = getRpcUrl(cid);
+	if (!rpc) throw new Error('No RPC configured for this chain');
+	const payload = {
+		jsonrpc: '2.0',
+		id: Math.floor(Math.random() * 1e9),
+		method: 'eth_call',
+		params: [{to: address, data: '0x06fdde03'}, 'latest']
+	};
+	const res = await fetch(rpc, {
+		method: 'POST',
+		headers: {'Content-Type': 'application/json'},
+		body: JSON.stringify(payload)
+	});
+	if (!res.ok) throw new Error(`RPC ${res.status}`);
+	const json = await res.json();
+	if (json?.error) throw new Error(json.error?.message || 'RPC error');
+	const result: string | undefined = json?.result;
+	if (!result || result === '0x') throw new Error('Empty result');
+	return decodeAbiString(result);
+}
+
+function decodeAbiString(resultHex: string): string {
+	const hex = resultHex.startsWith('0x') ? resultHex.slice(2) : resultHex;
+	if (hex.length >= 192) {
+		const lenHex = hex.slice(64, 128);
+		const len = parseInt(lenHex || '0', 16);
+		const dataHex = hex.slice(128, 128 + len * 2);
+		return hexToUtf8(dataHex);
+	}
+	if (hex.length === 64) return hexToUtf8(hex.replace(/00+$/, ''));
+	return hexToUtf8(hex);
+}
+
+function hexToUtf8(hex: string): string {
+	const bytes = hex.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || [];
+	return new TextDecoder().decode(new Uint8Array(bytes)).replace(/\u0000+$/, '');
+}
+
+function buildDefaultPrMetadata(mode: 'token' | 'chain', tokenItems: TokenItem[], chainItems: ChainItem[]): PrMetadata {
+	if (mode === 'chain') {
+		const chains = chainItems.map(item => item.chainId).filter(Boolean);
+		const paths = chainItems.flatMap(item => [
+			`/chain/${item.chainId}/logo.svg`,
+			`/chain/${item.chainId}/logo-32.png`,
+			`/chain/${item.chainId}/logo-128.png`
+		]);
+		return {
+			title: `feat: add chain assets (${chains.length})`,
+			body: [`Chains: ${chains.join(', ')}`, '', 'Uploaded locations:', ...paths.map(path => `- ${path}`)].join(
+				'\n'
+			)
+		};
+	}
+
+	const addresses = tokenItems.map(item => item.address.toLowerCase()).filter(Boolean);
+	const chains = tokenItems.map(item => item.chainId).filter(Boolean);
+	const uniqueChains = Array.from(new Set(chains));
+	const paths = tokenItems.flatMap(item => [
+		`/token/${item.chainId}/${item.address.toLowerCase()}/logo.svg`,
+		`/token/${item.chainId}/${item.address.toLowerCase()}/logo-32.png`,
+		`/token/${item.chainId}/${item.address.toLowerCase()}/logo-128.png`
+	]);
+
+	return {
+		title: `feat: add token assets (${addresses.length})`,
+		body: [
+			`Chains: ${uniqueChains.join(', ')}`,
+			`Addresses: ${addresses.join(', ')}`,
+			'',
+			'Uploaded locations:',
+			...paths.map(path => `- ${path}`)
+		].join('\n')
+	};
+}
+
+async function buildFormData(params: {
+	mode: 'token' | 'chain';
+	chainItems: ChainItem[];
+	tokenItems: TokenItem[];
+	prMeta: PrMetadata;
+}) {
+	const body = new FormData();
+	body.append('target', params.mode);
+	body.append('chainId', params.chainItems[0]?.chainId || '');
+	body.append('prTitle', params.prMeta.title);
+	body.append('prBody', params.prMeta.body);
+
+	if (params.mode === 'chain') {
+		const items = params.chainItems.map(item => ({
+			id: item.id,
+			chainId: item.chainId
+		}));
+		body.append('items', JSON.stringify(items));
+		await Promise.all(
+			params.chainItems.map(item => appendAssetFiles(body, item.id, item.files, item.preview, true))
+		);
+		return body;
+	}
+
+	const items = params.tokenItems.map(item => ({
+		id: item.id,
+		chainId: item.chainId,
+		address: item.address
+	}));
+	body.append('items', JSON.stringify(items));
+	await Promise.all(params.tokenItems.map(item => appendAssetFiles(body, item.id, item.files, item.preview, true)));
+	return body;
+}
+
+async function appendAssetFiles(
+	body: FormData,
+	prefix: string,
+	files: AssetFiles,
+	preview: PreviewMap,
+	usePrefix: boolean
+) {
+	const key = (name: AssetFileKind) => (usePrefix ? `${name}_${prefix}` : name);
+	if (files.svg) body.append(key('svg'), files.svg);
+	if (files.png32) body.append(key('png32'), files.png32);
+	else if (preview.png32) body.append(key('png32'), await dataUrlToFile(preview.png32, 'logo-32.png'));
+	if (files.png128) body.append(key('png128'), files.png128);
+	else if (preview.png128) body.append(key('png128'), await dataUrlToFile(preview.png128, 'logo-128.png'));
+}
+
+async function readApiError(res: Response) {
+	const contentType = res.headers.get('content-type') || '';
+	try {
+		if (contentType.includes('application/json')) {
+			const json = await res.json();
+			return json?.error || JSON.stringify(json);
+		}
+		return (await res.text()) || `HTTP ${res.status}`;
+	} catch {
+		return `HTTP ${res.status}`;
+	}
+}
 
 export const UploadRoute = createRoute({
 	getParentRoute: () => rootRoute,
