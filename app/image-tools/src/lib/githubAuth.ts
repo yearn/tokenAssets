@@ -3,16 +3,11 @@ export const AUTH_STATE_STORAGE_KEY = 'auth_state';
 export const AUTH_CHANGE_EVENT = 'github-auth-changed';
 export const AUTH_PENDING_STORAGE_KEY = 'github_oauth_pending';
 
-export function getGithubCallbackUrl(origin = window.location.origin) {
-	return new URL('/api/auth/github/callback', origin).toString();
-}
-
-export function buildAuthorizeUrl(clientId: string, state: string, redirectUri = getGithubCallbackUrl()) {
+export function buildAuthorizeUrl(clientId: string, state: string) {
 	const url = new URL('https://github.com/login/oauth/authorize');
 	url.searchParams.set('client_id', clientId);
 	url.searchParams.set('state', state);
 	url.searchParams.set('scope', 'public_repo');
-	url.searchParams.set('redirect_uri', redirectUri);
 	url.searchParams.set('prompt', 'select_account');
 	return url.toString();
 }
