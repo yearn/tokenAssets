@@ -5,7 +5,6 @@ export default async function (req: Request): Promise<Response> {
 		const url = new URL(req.url);
 		const code = url.searchParams.get('code');
 		const state = url.searchParams.get('state') || '';
-		const redirectUri = new URL('/api/auth/github/callback', url.origin).toString();
 		if (!code) {
 			return new Response(JSON.stringify({error: 'Missing code'}), {
 				status: 400,
@@ -28,8 +27,7 @@ export default async function (req: Request): Promise<Response> {
 			body: JSON.stringify({
 				client_id: clientId,
 				client_secret: clientSecret,
-				code,
-				redirect_uri: redirectUri
+				code
 			})
 		});
 		if (!tokenRes.ok) {

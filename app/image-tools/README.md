@@ -13,8 +13,12 @@ A lightweight SPA + Vercel Functions app for uploading token/chain assets and op
     -   `APP_BASE_URL` — optional; default request origin. Only set if SPA and API are on different origins. For the
         public deployment, leave unset or set to `https://token-assets.yearn.fi`; do not point this at a Vercel alias.
     -   `REPO_OWNER` (default `yearn`), `REPO_NAME` (default `tokenAssets`).
-    -   `ALLOW_REPO_OVERRIDE` — set to `true` only if you intentionally want to target a non-yearn repo when deploying from a fork.
--   GitHub OAuth App callback must allow the current domain: `https://<domain>/api/auth/github/callback` (or `http://localhost:3000/...` for `vercel dev`).
+    -   `ALLOW_REPO_OVERRIDE` — set to `true` only if you intentionally want to target a non-yearn repo when deploying
+        from a fork.
+-   GitHub OAuth App callback must be configured to the deployed API callback URL:
+    `https://<api-domain>/api/auth/github/callback`. The client intentionally does not send a `redirect_uri`; GitHub
+    uses the callback URL registered on the OAuth App, and the API redirects back to `APP_BASE_URL` after exchanging the
+    code.
 
 ## Commands
 
