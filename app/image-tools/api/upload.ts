@@ -1,5 +1,3 @@
-export const config = {runtime: 'edge'};
-
 import {openPrWithFilesForkAware, getUserLogin} from './github';
 
 const CANONICAL_OWNER = 'yearn';
@@ -165,7 +163,7 @@ async function readRequiredAssetFiles(form: FormData, suffix: string) {
 	return {svgBytes, png32Bytes, png128Bytes};
 }
 
-export default async function (req: Request): Promise<Response> {
+export async function handleUpload(req: Request): Promise<Response> {
 	if (req.method !== 'POST') return new Response('Method Not Allowed', {status: 405});
 	try {
 		const auth = req.headers.get('authorization') || '';
@@ -292,6 +290,9 @@ export default async function (req: Request): Promise<Response> {
 
 		return jsonResponse({ok: true, prUrl}, 200);
 	} catch (e: any) {
+		console.error('[upload] failed', e instanceof Error ? e.message : e);
 		return jsonResponse({error: e?.message || 'Upload failed'}, e?.status || 500);
 	}
 }
+
+export default {fetch: handleUpload};

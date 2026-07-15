@@ -24,7 +24,6 @@ type Props = {
 
 export const GithubSignIn: React.FC<Props> = ({token}) => {
 	const [connecting, setConnecting] = useState<boolean>(() => readAuthPending());
-	const [configError, setConfigError] = useState('');
 	const [login, setLogin] = useState<string | null>(null);
 
 	useEffect(() => {
@@ -56,16 +55,10 @@ export const GithubSignIn: React.FC<Props> = ({token}) => {
 
 	const signIn = () => {
 		const state = randomState();
-		const clientId = import.meta.env.VITE_GITHUB_CLIENT_ID;
-		if (!clientId) {
-			setConfigError('Missing GitHub client ID.');
-			return;
-		}
-		setConfigError('');
 		storeAuthState(state);
 		markAuthPending();
 		setConnecting(true);
-		window.location.href = buildAuthorizeUrl(clientId, state);
+		window.location.href = buildAuthorizeUrl(state);
 	};
 
 	const signOut = () => {
@@ -96,7 +89,6 @@ export const GithubSignIn: React.FC<Props> = ({token}) => {
 				className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50">
 				Sign in with GitHub
 			</button>
-			{configError && <p className="mt-2 text-right text-xs text-red-600">{configError}</p>}
 			<Transition
 				show={connecting && !token}
 				as={Fragment}

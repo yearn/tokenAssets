@@ -1,5 +1,7 @@
 export const config = {runtime: 'edge'};
 
+import {readOAuthStateWithLegacyProductionFallback, resolveOAuthReturnTo} from '../../../src/server/githubOAuthState';
+
 export default async function (req: Request): Promise<Response> {
 	try {
 		const url = new URL(req.url);
@@ -17,6 +19,17 @@ export default async function (req: Request): Promise<Response> {
 		if (!clientId || !clientSecret) {
 			return new Response(JSON.stringify({error: 'Missing GitHub OAuth env vars'}), {
 				status: 500,
+				headers: {'Content-Type': 'application/json'}
+			});
+		}
+		let oauthState: Awaited<ReturnType<typeof readOAuthStateWithLegacyProductionFallback>>;
+		let returnTo: string;
+		try {
+			oauthState = await readOAuthStateWithLegacyProductionFallback(state, clientSecret);
+			returnTo = resolveOAuthReturnTo(oauthState.returnTo, process.env.OAUTH_RETURN_ORIGINS || '');
+		} catch (error: any) {
+			return new Response(JSON.stringify({error: error?.message || 'Invalid OAuth state'}), {
+				status: 400,
 				headers: {'Content-Type': 'application/json'}
 			});
 		}
@@ -43,10 +56,8 @@ export default async function (req: Request): Promise<Response> {
 			});
 		}
 
-		const appBase = process.env.APP_BASE_URL || new URL(req.url).origin;
-		const redirect = new URL('/auth/github/success', appBase);
-		redirect.searchParams.set('token', accessToken);
-		redirect.searchParams.set('state', state);
+		const redirect = new URL('/auth/github/success', returnTo);
+		redirect.hash = new URLSearchParams({token: accessToken, state: oauthState.nonce}).toString();
 		return Response.redirect(redirect.toString(), 302);
 	} catch (e: any) {
 		return new Response(JSON.stringify({error: e?.message || 'OAuth callback failed'}), {

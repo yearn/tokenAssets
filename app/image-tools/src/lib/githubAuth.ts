@@ -2,13 +2,16 @@ export const TOKEN_STORAGE_KEY = 'github_token';
 export const AUTH_STATE_STORAGE_KEY = 'auth_state';
 export const AUTH_CHANGE_EVENT = 'github-auth-changed';
 export const AUTH_PENDING_STORAGE_KEY = 'github_oauth_pending';
+const DEFAULT_OAUTH_BROKER_ORIGIN = 'https://token-assets.yearn.fi';
 
-export function buildAuthorizeUrl(clientId: string, state: string) {
-	const url = new URL('https://github.com/login/oauth/authorize');
-	url.searchParams.set('client_id', clientId);
+export function buildAuthorizeUrl(
+	state: string,
+	returnTo = window.location.origin,
+	brokerOrigin = import.meta.env.VITE_GITHUB_OAUTH_BROKER_ORIGIN || DEFAULT_OAUTH_BROKER_ORIGIN
+) {
+	const url = new URL('/api/auth/github/start', brokerOrigin);
 	url.searchParams.set('state', state);
-	url.searchParams.set('scope', 'public_repo');
-	url.searchParams.set('prompt', 'select_account');
+	url.searchParams.set('returnTo', returnTo);
 	return url.toString();
 }
 
