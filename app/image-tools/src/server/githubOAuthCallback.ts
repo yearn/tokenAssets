@@ -1,8 +1,6 @@
-export const config = {runtime: 'edge'};
+import {readOAuthState, resolveOAuthReturnTo} from './githubOAuthState';
 
-import {readOAuthStateWithLegacyProductionFallback, resolveOAuthReturnTo} from '../../../src/server/githubOAuthState';
-
-export default async function (req: Request): Promise<Response> {
+export async function handleGithubOAuthCallback(req: Request): Promise<Response> {
 	try {
 		const url = new URL(req.url);
 		const code = url.searchParams.get('code');
@@ -14,7 +12,7 @@ export default async function (req: Request): Promise<Response> {
 			});
 		}
 
-		const clientId = process.env.GITHUB_CLIENT_ID || process.env.VITE_GITHUB_CLIENT_ID;
+		const clientId = process.env.GITHUB_CLIENT_ID;
 		const clientSecret = process.env.GITHUB_CLIENT_SECRET;
 		if (!clientId || !clientSecret) {
 			return new Response(JSON.stringify({error: 'Missing GitHub OAuth env vars'}), {
@@ -22,10 +20,10 @@ export default async function (req: Request): Promise<Response> {
 				headers: {'Content-Type': 'application/json'}
 			});
 		}
-		let oauthState: Awaited<ReturnType<typeof readOAuthStateWithLegacyProductionFallback>>;
+		let oauthState: Awaited<ReturnType<typeof readOAuthState>>;
 		let returnTo: string;
 		try {
-			oauthState = await readOAuthStateWithLegacyProductionFallback(state, clientSecret);
+			oauthState = await readOAuthState(state, clientSecret);
 			returnTo = resolveOAuthReturnTo(oauthState.returnTo, process.env.OAUTH_RETURN_ORIGINS || '');
 		} catch (error: any) {
 			return new Response(JSON.stringify({error: error?.message || 'Invalid OAuth state'}), {

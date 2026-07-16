@@ -1,5 +1,6 @@
+'use client';
+
 import React, {useEffect, useMemo, useState} from 'react';
-import {createRoute} from '@tanstack/react-router';
 import {Switch} from '@headlessui/react';
 import {AssetDropzone} from '../components/AssetDropzone';
 import {PreviewGrid} from '../components/PreviewGrid';
@@ -7,8 +8,7 @@ import {PrReviewDialog} from '../components/PrReviewDialog';
 import {SegmentedToggle} from '../components/SegmentedToggle';
 import {StatusBanner, type StatusTone} from '../components/StatusBanner';
 import {useGithubAuthToken} from '../hooks/useGithubAuth';
-import {API_BASE_URL} from '../lib/api';
-import {getRpcUrl, isEvmAddress, listKnownChains} from '../lib/chains';
+import {isEvmAddress, listKnownChains} from '../lib/chains';
 import {
 	type AssetFileKind,
 	type AssetFiles,
@@ -19,7 +19,6 @@ import {
 	revokePreviewUrl
 } from '../lib/imagePreview';
 import {clearUploadDraft, readUploadDraft, saveUploadDraft} from '../lib/uploadDraft';
-import {rootRoute} from '../router';
 
 type TokenItem = {
 	id: string;
@@ -54,7 +53,7 @@ type StatusState = {
 	prUrl?: string;
 };
 
-type UploadUrlParams = {
+export type UploadUrlParams = {
 	mode?: 'token' | 'chain';
 	chainId?: string;
 	address?: string;
@@ -91,7 +90,11 @@ function createChainItem(): ChainItem {
 	};
 }
 
-export const UploadComponent: React.FC = () => {
+type UploadComponentProps = {
+	initialParams?: UploadUrlParams;
+};
+
+export const UploadComponent: React.FC<UploadComponentProps> = ({initialParams = {}}) => {
 	const token = useGithubAuthToken();
 	const [mode, setMode] = useState<'token' | 'chain'>('token');
 	const [chainItems, setChainItems] = useState<ChainItem[]>(() => [createChainItem()]);
@@ -169,7 +172,7 @@ export const UploadComponent: React.FC = () => {
 
 	useEffect(() => {
 		let cancelled = false;
-		const urlParams = readUploadUrlParams();
+		const urlParams = initialParams;
 
 		const restoreDraft = async () => {
 			try {
@@ -217,7 +220,7 @@ export const UploadComponent: React.FC = () => {
 		return () => {
 			cancelled = true;
 		};
-	}, []);
+	}, [initialParams]);
 
 	useEffect(() => {
 		if (!draftReady) return;
@@ -326,14 +329,17 @@ export const UploadComponent: React.FC = () => {
 		setStatus({tone: 'info', title: 'Creating PR', message: 'Uploading images and preparing a GitHub branch.'});
 
 		try {
-			const reqUrl = new URL('/api/upload', API_BASE_URL).toString();
 			const form = await buildFormData({
 				mode,
 				chainItems,
 				tokenItems,
 				prMeta: {title: prTitle, body: prBody}
 			});
-			const res = await fetch(reqUrl, {method: 'POST', headers: {Authorization: `Bearer ${token}`}, body: form});
+			const res = await fetch('/api/upload', {
+				method: 'POST',
+				headers: {Authorization: `Bearer ${token}`},
+				body: form
+			});
 			if (!res.ok) {
 				setStatus({tone: 'error', title: 'Upload failed', message: await readApiError(res)});
 				return;
@@ -848,27 +854,6 @@ function restoreChainDraftItems(draft: Awaited<ReturnType<typeof readUploadDraft
 	}));
 }
 
-function readUploadUrlParams(): UploadUrlParams {
-	if (typeof window === 'undefined') return {};
-
-	const params = new URLSearchParams(window.location.search);
-	const modeParam = readFirstSearchValue(params, ['mode', 'type', 'target']);
-	const chainId = readFirstSearchValue(params, ['chain', 'chainId']);
-	const address = readFirstSearchValue(params, ['address', 'token']);
-	const name = readFirstSearchValue(params, ['name']);
-	const mode = modeParam === 'chain' ? 'chain' : modeParam === 'token' || address ? 'token' : undefined;
-
-	return {mode, chainId, address, name};
-}
-
-function readFirstSearchValue(params: URLSearchParams, keys: string[]): string | undefined {
-	for (const key of keys) {
-		const value = params.get(key)?.trim();
-		if (value) return value;
-	}
-	return undefined;
-}
-
 function applyUploadUrlParams(
 	params: UploadUrlParams,
 	setMode: React.Dispatch<React.SetStateAction<'token' | 'chain'>>,
@@ -915,8 +900,7 @@ async function fetchErc20Name(chainIdStr: string, address: string): Promise<stri
 	if (!cid || Number.isNaN(cid)) throw new Error('Invalid chain');
 
 	try {
-		const url = new URL('/api/erc20-name', API_BASE_URL).toString();
-		const res = await fetch(url, {
+		const res = await fetch('/api/erc20-name', {
 			method: 'POST',
 			headers: {'Content-Type': 'application/json'},
 			body: JSON.stringify({chainId: cid, address})
@@ -924,55 +908,19 @@ async function fetchErc20Name(chainIdStr: string, address: string): Promise<stri
 		if (!res.ok) throw new Error(await res.text());
 		const json = await res.json();
 		if (json?.name) return json.name as string;
-	} catch {
-		// Fall through to a direct RPC attempt for local development when the API is unavailable.
+		throw new Error('Token name was not returned');
+	} catch (error) {
+		throw error instanceof Error ? error : new Error('Token name lookup failed');
 	}
-
-	const rpc = getRpcUrl(cid);
-	if (!rpc) throw new Error('No RPC configured for this chain');
-	const payload = {
-		jsonrpc: '2.0',
-		id: Math.floor(Math.random() * 1e9),
-		method: 'eth_call',
-		params: [{to: address, data: '0x06fdde03'}, 'latest']
-	};
-	const res = await fetch(rpc, {
-		method: 'POST',
-		headers: {'Content-Type': 'application/json'},
-		body: JSON.stringify(payload)
-	});
-	if (!res.ok) throw new Error(`RPC ${res.status}`);
-	const json = await res.json();
-	if (json?.error) throw new Error(json.error?.message || 'RPC error');
-	const result: string | undefined = json?.result;
-	if (!result || result === '0x') throw new Error('Empty result');
-	return decodeAbiString(result);
-}
-
-function decodeAbiString(resultHex: string): string {
-	const hex = resultHex.startsWith('0x') ? resultHex.slice(2) : resultHex;
-	if (hex.length >= 192) {
-		const lenHex = hex.slice(64, 128);
-		const len = parseInt(lenHex || '0', 16);
-		const dataHex = hex.slice(128, 128 + len * 2);
-		return hexToUtf8(dataHex);
-	}
-	if (hex.length === 64) return hexToUtf8(hex.replace(/00+$/, ''));
-	return hexToUtf8(hex);
-}
-
-function hexToUtf8(hex: string): string {
-	const bytes = hex.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || [];
-	return new TextDecoder().decode(new Uint8Array(bytes)).replace(/\u0000+$/, '');
 }
 
 function buildDefaultPrMetadata(mode: 'token' | 'chain', tokenItems: TokenItem[], chainItems: ChainItem[]): PrMetadata {
 	if (mode === 'chain') {
 		const chains = chainItems.map(item => item.chainId).filter(Boolean);
 		const paths = chainItems.flatMap(item => [
-			`/chain/${item.chainId}/logo.svg`,
-			`/chain/${item.chainId}/logo-32.png`,
-			`/chain/${item.chainId}/logo-128.png`
+			`/chains/${item.chainId}/logo.svg`,
+			`/chains/${item.chainId}/logo-32.png`,
+			`/chains/${item.chainId}/logo-128.png`
 		]);
 		return {
 			title: `feat: add chain assets (${chains.length})`,
@@ -986,9 +934,9 @@ function buildDefaultPrMetadata(mode: 'token' | 'chain', tokenItems: TokenItem[]
 	const chains = tokenItems.map(item => item.chainId).filter(Boolean);
 	const uniqueChains = Array.from(new Set(chains));
 	const paths = tokenItems.flatMap(item => [
-		`/token/${item.chainId}/${item.address.toLowerCase()}/logo.svg`,
-		`/token/${item.chainId}/${item.address.toLowerCase()}/logo-32.png`,
-		`/token/${item.chainId}/${item.address.toLowerCase()}/logo-128.png`
+		`/tokens/${item.chainId}/${item.address.toLowerCase()}/logo.svg`,
+		`/tokens/${item.chainId}/${item.address.toLowerCase()}/logo-32.png`,
+		`/tokens/${item.chainId}/${item.address.toLowerCase()}/logo-128.png`
 	]);
 
 	return {
@@ -1064,9 +1012,3 @@ async function readApiError(res: Response) {
 		return `HTTP ${res.status}`;
 	}
 }
-
-export const UploadRoute = createRoute({
-	getParentRoute: () => rootRoute,
-	path: '/',
-	component: UploadComponent
-});

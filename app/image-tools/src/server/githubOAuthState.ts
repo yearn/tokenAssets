@@ -65,17 +65,6 @@ export async function readOAuthState(state: string, secret: string, now = Date.n
 	return payload;
 }
 
-export async function readOAuthStateWithLegacyProductionFallback(
-	state: string,
-	secret: string,
-	now = Date.now()
-): Promise<OAuthStatePayload> {
-	if (NONCE_PATTERN.test(state)) {
-		return {nonce: state, returnTo: CANONICAL_APP_ORIGIN, expiresAt: now};
-	}
-	return readOAuthState(state, secret, now);
-}
-
 async function sign(value: string, secret: string): Promise<ArrayBuffer> {
 	return crypto.subtle.sign('HMAC', await importSigningKey(secret), new TextEncoder().encode(value));
 }

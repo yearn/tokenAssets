@@ -1,14 +1,12 @@
-export const config = {runtime: 'edge'};
+import {createOAuthState, resolveOAuthReturnTo} from './githubOAuthState';
 
-import {createOAuthState, resolveOAuthReturnTo} from '../../../src/server/githubOAuthState';
-
-export default async function (req: Request): Promise<Response> {
+export async function handleGithubOAuthStart(req: Request): Promise<Response> {
 	try {
 		if (req.method !== 'GET') return new Response('Method Not Allowed', {status: 405});
 
 		const requestUrl = new URL(req.url);
 		const nonce = requestUrl.searchParams.get('state') || '';
-		const clientId = process.env.GITHUB_CLIENT_ID || process.env.VITE_GITHUB_CLIENT_ID;
+		const clientId = process.env.GITHUB_CLIENT_ID;
 		const clientSecret = process.env.GITHUB_CLIENT_SECRET;
 		if (!clientId || !clientSecret) throw new Error('Missing GitHub OAuth env vars');
 

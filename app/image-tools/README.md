@@ -1,43 +1,54 @@
 # Image Tools App
 
-A lightweight SPA + Vercel Functions app for uploading token/chain assets and opening GitHub PRs into this repository.
+A Next.js app for uploading token and chain assets and opening pull requests against this repository.
 
-## Environment Variables (Dev/Prod)
+## Environment variables
 
--   Client (exposed to browser)
-    -   `VITE_GITHUB_OAUTH_BROKER_ORIGIN` — optional; defaults to `https://token-assets.yearn.fi`, whose registered
-        callback brokers sign-in back to approved preview origins.
-    -   `VITE_API_BASE_URL` — optional; default same-origin. Set only if the API lives on another origin.
-    -   `VITE_RPC_URI_FOR_<chainId>` — optional RPC URLs used by `/api/erc20-name`.
--   Server (Vercel Functions)
-    -   `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` — GitHub OAuth App credentials used by the production broker.
-    -   `OAUTH_RETURN_ORIGINS` — optional comma-separated list of additional exact origins allowed after GitHub OAuth.
-        The canonical production origin and the private `dev-vm.tail197cc7.ts.net` preview host are already trusted.
-    -   `REPO_OWNER` (default `yearn`), `REPO_NAME` (default `tokenAssets`).
-    -   `ALLOW_REPO_OVERRIDE` — set to `true` only if you intentionally want to target a non-yearn repo when deploying
-        from a fork.
--   GitHub OAuth App callback must be configured to the deployed API callback URL:
-    `https://<api-domain>/api/auth/github/callback`. The client intentionally does not send a `redirect_uri`; GitHub
-    uses the callback URL registered on the OAuth App. The signed OAuth state then safely returns the user to the
-    production or approved preview origin that started sign-in.
+### Browser
+
+-   `NEXT_PUBLIC_GITHUB_OAUTH_BROKER_ORIGIN` — optional; defaults to `https://token-assets.yearn.fi`. The production
+    broker uses its registered GitHub callback and safely returns users to approved preview origins.
+
+### Server
+
+-   `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` — GitHub OAuth App credentials used by the production broker.
+-   `OAUTH_RETURN_ORIGINS` — optional comma-separated list of additional exact origins allowed after GitHub OAuth.
+    The canonical production origin and private `dev-vm.tail197cc7.ts.net` preview host are already trusted.
+-   `REPO_OWNER` and `REPO_NAME` — default to `yearn/tokenAssets`.
+-   `ALLOW_REPO_OVERRIDE` — set to `true` only when intentionally targeting another repository from a fork deployment.
+-   `RPC_URI_FOR_<chainId>` or `RPC_<chainId>` — optional RPC URLs used by `/api/erc20-name`. Legacy `VITE_RPC_*`
+    names are temporarily accepted during deployment migration.
+
+The GitHub OAuth App callback must be `https://token-assets.yearn.fi/api/auth/github/callback`. Preview sign-in starts
+at the production `/api/auth/github/start` broker, which signs the requested app origin into OAuth state. GitHub then
+returns to the registered production callback, and the broker returns the token in the URL fragment of the approved
+preview or production `/auth/github/success` route.
+
+### OAuth deployment transition
+
+The pre-migration production Vite client starts GitHub OAuth with an unsigned nonce. The Next.js callback intentionally
+does not accept that legacy state. An OAuth attempt started in an old or already-open Vite tab before the Next.js
+deployment will fail after cutover; the user must refresh and start sign-in again. Deploy the Next.js frontend, OAuth
+start route, and callback together so all newly started attempts use signed, expiring state.
 
 ## Commands
 
--   `bun dev` — Vite dev server for the SPA (http://localhost:5173).
--   `vercel dev` — Runs API routes and serves the SPA locally (recommended for full flow).
--   `bun build` / `bun preview` — Build and preview the SPA.
--   `bun typecheck` — TypeScript type checks (acts as lightweight lint).
--   `bun lint` — Alias to type checks.
+-   `bun dev` — Next.js development server at `http://127.0.0.1:3000`.
+-   `bun build` — production Next.js build.
+-   `bun preview` — serve the production build at `http://127.0.0.1:3000`.
+-   `bun typecheck` / `bun lint` — TypeScript validation.
+-   `bun test` — focused Bun tests for OAuth and upload behavior.
 
-## App Flow (What Calls What)
+Node.js 20.9 or newer is required. Vercel should use `app/image-tools` as the project root and the Next.js framework
+preset.
 
-1. Open the site — SPA loads; no API calls by default.
-2. Sign in with GitHub — Browser starts at the production OAuth broker, which signs the requested app origin into the OAuth state before redirecting to GitHub. GitHub always returns to the registered production `/api/auth/github/callback` (Edge), which verifies the state, exchanges the code, and safely returns to `/auth/github/success` on the original production or preview origin.
-3. Enter chain/address — Client may call `POST /api/erc20-name` (Edge) to resolve ERC‑20 name.
-4. Drop SVG — Client generates PNG previews (32×32, 128×128) via Canvas.
-5. Submit PR — Client posts multipart form to `POST /api/upload` (Node.js) with `svg`, `png32`, and `png128`. The function validates sizes and opens a PR via GitHub API. GitHub's tree API creates missing token or chain directories from the submitted file paths.
+## App flow
 
-## Notes
+1. The App Router serves the upload form.
+2. GitHub sign-in uses the production OAuth broker and returns through `/auth/github/success`.
+3. The client calls `POST /api/erc20-name` to resolve ERC-20 names through a server-only RPC.
+4. Dropping an SVG generates 32×32 and 128×128 PNG previews in the browser.
+5. `POST /api/upload` validates the multipart files and opens a GitHub pull request.
 
--   PNGs are generated client‑side and validated on the server.
--   Keep SVGs simple/optimized; ensure PNGs are exactly 32×32 and 128×128.
+Git tree entries create missing directories implicitly. A chain `999` upload submits
+`chains/999/{logo.svg,logo-32.png,logo-128.png}` even when `chains/999` does not exist yet.

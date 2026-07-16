@@ -3,20 +3,14 @@ import {Dialog, Transition} from '@headlessui/react';
 
 import {
 	broadcastAuthChange,
-	storeAuthState,
-	clearStoredAuth,
 	buildAuthorizeUrl,
-	markAuthPending,
 	clearAuthPending,
-	readAuthPending
+	clearStoredAuth,
+	createGithubOAuthNonce,
+	markAuthPending,
+	readAuthPending,
+	storeAuthState
 } from '../lib/githubAuth';
-
-function randomState(len = 20) {
-	const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-	let out = '';
-	for (let i = 0; i < len; i++) out += chars[Math.floor(Math.random() * chars.length)];
-	return out;
-}
 
 type Props = {
 	token: string | null;
@@ -54,7 +48,7 @@ export const GithubSignIn: React.FC<Props> = ({token}) => {
 	}, [token]);
 
 	const signIn = () => {
-		const state = randomState();
+		const state = createGithubOAuthNonce();
 		storeAuthState(state);
 		markAuthPending();
 		setConnecting(true);
@@ -86,7 +80,7 @@ export const GithubSignIn: React.FC<Props> = ({token}) => {
 		<div className="flex flex-col items-end">
 			<button
 				onClick={signIn}
-				className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50">
+				className="inline-flex items-center gap-2 rounded-md border border-blue-600 bg-blue-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:border-blue-700 hover:bg-blue-700 active:border-blue-800 active:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
 				Sign in with GitHub
 			</button>
 			<Transition
