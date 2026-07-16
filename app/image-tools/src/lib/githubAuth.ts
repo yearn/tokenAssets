@@ -2,13 +2,33 @@ export const TOKEN_STORAGE_KEY = 'github_token';
 export const AUTH_STATE_STORAGE_KEY = 'auth_state';
 export const AUTH_CHANGE_EVENT = 'github-auth-changed';
 export const AUTH_PENDING_STORAGE_KEY = 'github_oauth_pending';
+const DEFAULT_OAUTH_BROKER_ORIGIN = 'https://token-assets.yearn.fi';
 
-export function buildAuthorizeUrl(clientId: string, state: string) {
-	const url = new URL('https://github.com/login/oauth/authorize');
-	url.searchParams.set('client_id', clientId);
+type GithubOAuthCompletionDependencies = {
+	readStoredState: () => string | null;
+	readAuthPending: () => boolean;
+	storeAuthToken: (token: string) => void;
+	clearStoredState: () => void;
+	clearAuthPending: () => void;
+	broadcastAuthChange: () => void;
+};
+
+export type GithubOAuthCompletionResult = {ok: true} | {ok: false; error: string};
+
+export function createGithubOAuthNonce(): string {
+	const bytes = new Uint8Array(20);
+	crypto.getRandomValues(bytes);
+	return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+export function buildAuthorizeUrl(
+	state: string,
+	returnTo = window.location.origin,
+	brokerOrigin = process.env.NEXT_PUBLIC_GITHUB_OAUTH_BROKER_ORIGIN || DEFAULT_OAUTH_BROKER_ORIGIN
+) {
+	const url = new URL('/api/auth/github/start', brokerOrigin);
 	url.searchParams.set('state', state);
-	url.searchParams.set('scope', 'public_repo');
-	url.searchParams.set('prompt', 'select_account');
+	url.searchParams.set('returnTo', returnTo);
 	return url.toString();
 }
 
@@ -88,4 +108,44 @@ export function broadcastAuthChange() {
 	try {
 		window.dispatchEvent(new StorageEvent('storage', {key: TOKEN_STORAGE_KEY}));
 	} catch {}
+}
+
+export function completeGithubOAuthSignIn(
+	fragment: string,
+	dependencies: GithubOAuthCompletionDependencies = {
+		readStoredState,
+		readAuthPending,
+		storeAuthToken,
+		clearStoredState,
+		clearAuthPending,
+		broadcastAuthChange
+	}
+): GithubOAuthCompletionResult {
+	try {
+		if (!dependencies.readAuthPending()) {
+			return {ok: false, error: 'No GitHub sign-in attempt is pending. Please start sign-in again.'};
+		}
+		if (!fragment.startsWith('#')) {
+			return {ok: false, error: 'GitHub returned an invalid sign-in response. Please try again.'};
+		}
+
+		const params = new URLSearchParams(fragment.slice(1));
+		const token = params.get('token');
+		const returnedState = params.get('state');
+		const storedState = dependencies.readStoredState();
+
+		if (!token) {
+			return {ok: false, error: 'GitHub did not return an access token. Please try again.'};
+		}
+		if (!returnedState || !storedState || returnedState !== storedState) {
+			return {ok: false, error: 'GitHub sign-in could not be verified. Please start sign-in again.'};
+		}
+
+		dependencies.storeAuthToken(token);
+		dependencies.broadcastAuthChange();
+		return {ok: true};
+	} finally {
+		dependencies.clearAuthPending();
+		dependencies.clearStoredState();
+	}
 }
