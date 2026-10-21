@@ -16,10 +16,11 @@ jobs:
            persist-credentials: false
            fetch-depth: 0
 
-        - name: Use Node 18.x
-          uses: actions/setup-node@v1
+        - name: Use Node 22
+          uses: actions/setup-node@v4
           with:
-            node-version: 18.x
+            node-version: '22'
+            check-latest: true
 
         - name: Install deps
           run: npm install
