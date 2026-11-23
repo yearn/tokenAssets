@@ -1,17 +1,10 @@
 # bin bash
 mkdir -p ./public
 
-# Copy all files from the root directory starting with a number (chainID)
-# cp -rf ../../1 ./public/
-
-allDirectories=$(find ../../tokens -maxdepth 1 -type d -name '[0-9]*')
-for directory in $allDirectories
+# Copy only the per-chain list.json files; logos are served by the API routes
+for list in ../../tokens/[0-9]*/list.json
 do
-  cp -rf $directory ./public/tokens/
-done
-
-allDirectories=$(find ../../chains -maxdepth 1 -type d -name '[0-9]*')
-for directory in $allDirectories
-do
-  cp -rf $directory ./public/chains/
+  directory=$(dirname $list)
+  mkdir -p ./public/tokens/$(basename $directory)
+  cp -f $list ./public/tokens/$(basename $directory)/
 done

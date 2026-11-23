@@ -1,7 +1,7 @@
 export type TContext = {
-	params: {
+	params: Promise<{
 		chainID: string;
 		tokenAddress: string;
 		filename: string;
-	};
+	}>;
 };

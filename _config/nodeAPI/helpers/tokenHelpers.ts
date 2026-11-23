@@ -56,17 +56,18 @@ async function resolveGasToken(request: Request): Promise<Response> {
 }
 
 type TTokenContext = {
-	params: {
+	params: Promise<{
 		chainID: string;
 		tokenAddress: string;
 		filename: string;
-	};
+	}>;
 };
 
 export async function handleTokenRequest(request: Request, context: TTokenContext): Promise<Response> {
-	const chainIDStr = (context?.params?.chainID || 1).toString();
-	const fileName = (context?.params?.filename || '').toLowerCase();
-	let tokenAddress = context?.params?.tokenAddress || '';
+	const params = await context?.params;
+	const chainIDStr = (params?.chainID || 1).toString();
+	const fileName = (params?.filename || '').toLowerCase();
+	let tokenAddress = params?.tokenAddress || '';
 	if (tokenAddress.startsWith('0x')) {
 		tokenAddress = tokenAddress.toLowerCase();
 	}

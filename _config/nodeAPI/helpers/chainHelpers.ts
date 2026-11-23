@@ -24,16 +24,17 @@ async function resolveNotFound(request: Request): Promise<Response> {
 	return new Response('Not found', {status: 404});
 }
 
-type TChainContext = {
-	params: {
+export type TChainContext = {
+	params: Promise<{
 		chainID: string;
 		filename: string;
-	};
+	}>;
 };
 
 export async function handleChainRequest(request: Request, context: TChainContext): Promise<Response> {
-	const chainIDStr = (context?.params?.chainID || 1).toString();
-	const fileName = (context?.params?.filename || '').toLowerCase();
+	const params = await context?.params;
+	const chainIDStr = (params?.chainID || 1).toString();
+	const fileName = (params?.filename || '').toLowerCase();
 	if (!['logo.svg', 'logo-32.png', 'logo-128.png'].includes(fileName)) {
 		return await resolveNotFound(request);
 	}
